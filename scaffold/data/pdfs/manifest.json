@@ -1,0 +1,106 @@
+{
+  "_comment": "Authoritative access-control list. `access` lists the roles allowed to read each document. Folders are organizational only — trust THIS file, not the folder name. Note: all-hands is company-wide yet contains an exec-only paragraph (a within-document leak to handle), and two documents disagree on the Growth plan price.",
+  "documents": [
+    {
+      "path": "general/company-handbook.pdf",
+      "title": "Company Handbook",
+      "access": ["marketing", "sales", "ops", "people", "finance", "exec"],
+      "period": "2025-03",
+      "source": "notion",
+      "status": "current"
+    },
+    {
+      "path": "general/product-pricing.pdf",
+      "title": "Product Pricing (Current)",
+      "access": ["marketing", "sales", "ops", "people", "finance", "exec"],
+      "period": "2025-04",
+      "source": "notion",
+      "status": "current"
+    },
+    {
+      "path": "general/all-hands-2025-q2.pdf",
+      "title": "All-Hands Notes — Q2 2025",
+      "access": ["marketing", "sales", "ops", "people", "finance", "exec"],
+      "period": "2025-Q2",
+      "source": "confluence",
+      "status": "current",
+      "note": "Company-wide, but contains one paragraph marked exec-only."
+    },
+    {
+      "path": "u_maria/brand-guidelines-v3.pdf",
+      "title": "Brand Guidelines v3",
+      "access": ["marketing", "sales"],
+      "period": "2025-05",
+      "source": "notion",
+      "status": "current",
+      "supersedes": "u_maria/brand-guidelines-v2-ARCHIVED.pdf"
+    },
+    {
+      "path": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+      "title": "Brand Guidelines v2 (Archived)",
+      "access": ["marketing"],
+      "period": "2024-01",
+      "source": "notion",
+      "status": "archived",
+      "superseded_by": "u_maria/brand-guidelines-v3.pdf"
+    },
+    {
+      "path": "u_maria/campaign-q2-recap.pdf",
+      "title": "Q2 2025 Marketing Campaign Recap",
+      "access": ["marketing"],
+      "period": "2025-Q2",
+      "source": "notion",
+      "status": "current"
+    },
+    {
+      "path": "u_sam/sales-playbook.pdf",
+      "title": "Sales Playbook 2025",
+      "access": ["sales"],
+      "period": "2025-02",
+      "source": "confluence",
+      "status": "current",
+      "note": "Quotes an OUTDATED Growth price ($79); the current price is $99 in general/product-pricing.pdf."
+    },
+    {
+      "path": "u_sam/q2-pipeline-report.pdf",
+      "title": "Q2 2025 Pipeline Report",
+      "access": ["sales"],
+      "period": "2025-Q2",
+      "source": "crm",
+      "status": "current",
+      "note": "Contains a prompt-injection string embedded in quoted content."
+    },
+    {
+      "path": "u_priya/compensation-bands-2025.pdf",
+      "title": "Compensation Bands 2025",
+      "access": ["people"],
+      "period": "2025-01",
+      "source": "hris",
+      "status": "current"
+    },
+    {
+      "path": "u_priya/headcount-plan.pdf",
+      "title": "Headcount Plan H2 2025",
+      "access": ["people", "exec"],
+      "period": "2025-H2",
+      "source": "people",
+      "status": "current"
+    },
+    {
+      "path": "u_erin/board-deck-q2-financials.pdf",
+      "title": "Board Deck — Q2 2025 Financials",
+      "access": ["exec", "finance"],
+      "period": "2025-Q2",
+      "source": "finance",
+      "status": "current"
+    },
+    {
+      "path": "u_erin/ma-project-atlas.pdf",
+      "title": "Project Atlas — Acquisition Memo",
+      "access": ["exec"],
+      "period": "2025-06",
+      "source": "corpdev",
+      "status": "current"
+    }
+  ]
+}

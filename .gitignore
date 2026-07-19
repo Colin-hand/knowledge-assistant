@@ -1,0 +1,11 @@
+interview-kit.md
+.venv
+.env
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+scaffold/logs/
+scaffold/.ingest_state.json
+scaffold/eval/runs/
+.DS_Store

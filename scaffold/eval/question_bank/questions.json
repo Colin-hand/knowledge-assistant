@@ -1,0 +1,740 @@
+[
+  {
+    "question": "What are Helios Labs\u2019 office locations and how many employees work at each?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What are the core collaboration hours?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "How many vacation days do employees get each year?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "How do I request vacation time?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Who should I contact about payroll or benefits?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Where do I get help with my laptop or system access?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Which channel should I use for brand or marketing assets?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What are the company\u2019s core values?",
+    "source_doc_id": "general/company-handbook.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What are the current monthly prices for the Starter, Growth, and Scale plans?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "How many seats are included with each standard plan?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What support level comes with each plan?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What does the Enterprise plan cost, and how is it priced?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What add-ons are available and how much does each cost?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Is the Growth plan\u2019s $99 per-seat price monthly or annual?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Who needs to approve discounts, and where do they have to be recorded?",
+    "source_doc_id": "general/product-pricing.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "How many paying customers did we have at the end of Q2, and how does that compare with Q1?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Are we planning to hire more engineers, and where will those hires be based?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What\u2019s the plan for the Growth plan self-serve trial?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Which customer segment are we focusing on to reduce churn?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "How did the Support team perform on CSAT during Q2?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "Where can I find the all-hands recording and slides?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "When is the next all-hands?",
+    "source_doc_id": "general/all-hands-2025-q2.pdf",
+    "access_roles": [
+      "marketing",
+      "sales",
+      "ops",
+      "people",
+      "finance",
+      "exec"
+    ]
+  },
+  {
+    "question": "What\u2019s the approved tagline, and should I capitalize it exactly that way?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "How much clear space does the logo need?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "What color should the sun mark be?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "What are the approved brand colors and their hex codes?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "Which colors should I use for headings, body text, secondary text, and backgrounds?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "What tone and writing style should marketing copy use?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "What wording should I use instead of hype like \u201crevolutionises\u201d?",
+    "source_doc_id": "u_maria/brand-guidelines-v3.pdf",
+    "access_roles": [
+      "marketing",
+      "sales"
+    ]
+  },
+  {
+    "question": "Which brand guideline version should I use for new marketing assets?",
+    "source_doc_id": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "Is this brand guidelines document still current, or has it been replaced?",
+    "source_doc_id": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What was the approved tagline in Brand Guidelines v2?",
+    "source_doc_id": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What colour codes were specified in the archived v2 palette?",
+    "source_doc_id": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What tone of voice did the v2 guidelines recommend?",
+    "source_doc_id": "u_maria/brand-guidelines-v2-ARCHIVED.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "How did the Q2 campaign perform compared with Q1?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "How many MQLs did we generate in Q2, and how did that change from Q1?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What was the campaign spend and cost per MQL in Q2?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "Which channel converted best in Q2?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What were the conversion rates for webinars, email, and paid social?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "Which paid social ad sets should be paused?",
+    "source_doc_id": "u_maria/campaign-q2-recap.pdf",
+    "access_roles": [
+      "marketing"
+    ]
+  },
+  {
+    "question": "What does a well-qualified Helios opportunity look like under BANT?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What budget, buyer, need, and timeline should we confirm during qualification?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "Which Helios plan is best for growing teams, and how much does it cost?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What are the prices and intended customers for the Starter, Growth, and Scale plans?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "Can I discount the Growth plan, and who needs to approve it?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "How should I respond when a prospect says Helios is too expensive?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What do I need to do within 24 hours after a deal is signed?",
+    "source_doc_id": "u_sam/sales-playbook.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "How many leads, opportunities, proposals, and won deals were in the Q2 funnel?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What were the conversion rates between each pipeline stage?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "How many deals did we win in each customer segment?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "How much new ARR came from SMB, mid-market, and enterprise customers?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What was the average deal size for each segment?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "How many enterprise deals slipped into Q3, and why?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What was the overall win rate in Q2?",
+    "source_doc_id": "u_sam/q2-pipeline-report.pdf",
+    "access_roles": [
+      "sales"
+    ]
+  },
+  {
+    "question": "What are the 2025 salary ranges for each engineering level?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "What are the 2025 salary bands for Account Executives and Sales Managers?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "What\u2019s the midpoint salary for an E3 Senior Engineer?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "What are the minimum and maximum base salaries for a Principal Engineer?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "When did these compensation bands take effect?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "Are the listed amounts annual base salary, and what currency are they in?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "Is sales commission included in these salary ranges?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "How often are the compensation bands reviewed, and what market benchmark do they target?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "Who owns the 2025 compensation bands?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "Who is allowed to access or share this salary band information?",
+    "source_doc_id": "u_priya/compensation-bands-2025.pdf",
+    "access_roles": [
+      "people"
+    ]
+  },
+  {
+    "question": "What\u2019s our current headcount by department at the end of Q2?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "How many hires are approved for H2 2025 in each department?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "What should total headcount be by the end of Q4?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "How many people are we planning to hire overall in H2?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "Which team is getting the most new hires?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "When is Engineering\u2019s hiring expected to happen?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "Are backfills included in the approved hiring numbers?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "What assumptions does this headcount plan depend on?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "Who owns the H2 2025 headcount plan?",
+    "source_doc_id": "u_priya/headcount-plan.pdf",
+    "access_roles": [
+      "people",
+      "exec"
+    ]
+  },
+  {
+    "question": "What were revenue, gross margin, operating expenses, and net burn in Q2 2025?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "How did Q2 2025 financials compare with Q1 2025 and Q4 2024?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "How much cash did we have at the end of Q2 2025?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "What\u2019s our average quarterly burn and estimated runway?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "When does our runway extend to at the current burn rate?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "How would the Project Atlas acquisition affect cash and runway?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "Is a bridge raise being considered?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "What approvals is the board being asked to give?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "How many additional hires are planned for H2?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "What is the proposed spending limit for the Project Atlas acquisition?",
+    "source_doc_id": "u_erin/board-deck-q2-financials.pdf",
+    "access_roles": [
+      "exec",
+      "finance"
+    ]
+  },
+  {
+    "question": "What company are we acquiring and what does it do?",
+    "source_doc_id": "u_erin/ma-project-atlas.pdf",
+    "access_roles": [
+      "exec"
+    ]
+  },
+  {
+    "question": "What\u2019s the proposed purchase price and deal structure?",
+    "source_doc_id": "u_erin/ma-project-atlas.pdf",
+    "access_roles": [
+      "exec"
+    ]
+  },
+  {
+    "question": "When is the deal expected to close?",
+    "source_doc_id": "u_erin/ma-project-atlas.pdf",
+    "access_roles": [
+      "exec"
+    ]
+  }
+]

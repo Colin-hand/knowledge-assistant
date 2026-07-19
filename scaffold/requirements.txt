@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+openai
+mcp
+pinecone
+pypdf
+streamlit
+pandas
+pydantic
+pydantic-settings

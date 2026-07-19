@@ -1,0 +1,30 @@
+{
+  "_comment": "Demo identity model. No login system needed: a request presents a token, you resolve it to a user, and scope retrieval to the roles the user holds. Documents in sample_docs carry an `access` label listing the roles allowed to read them. (Real token/JWT validation is out of scope for the build — we discuss it in the interview.)",
+  "roles": ["marketing", "sales", "ops", "people", "finance", "exec"],
+  "users": [
+    {
+      "id": "u_maria",
+      "name": "Maria (Marketing)",
+      "token": "tok_marketing_demo",
+      "roles": ["marketing"]
+    },
+    {
+      "id": "u_sam",
+      "name": "Sam (Sales)",
+      "token": "tok_sales_demo",
+      "roles": ["sales", "marketing"]
+    },
+    {
+      "id": "u_priya",
+      "name": "Priya (People/HR)",
+      "token": "tok_people_demo",
+      "roles": ["people"]
+    },
+    {
+      "id": "u_erin",
+      "name": "Erin (Exec)",
+      "token": "tok_exec_demo",
+      "roles": ["exec", "finance", "marketing", "sales", "ops", "people"]
+    }
+  ]
+}
