@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     pinecone_region: str = "us-east-1"
     embed_dimension: int = 1536
 
+    # Ingestion
+    chunk_max_chars: int = 500  # hard cap per chunk; override via CHUNK_MAX_CHARS
+
     # Retrieval
     top_k: int = 8
     score_floor: float = 0.25

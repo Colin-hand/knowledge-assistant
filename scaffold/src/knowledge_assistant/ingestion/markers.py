@@ -1,9 +1,4 @@
-"""Sub-document access markers, shared by chunker (isolation) and enricher (ACL).
-
-Assumption: this marker convention is how sub-document restrictions are
-expressed in this corpus (case-insensitive, tolerant of em/en/hyphen dashes).
-Known instance: one paragraph in general/all-hands-2025-q2.pdf.
-"""
+"""Confidential-marker regex shared by chunker and enricher."""
 
 import re
 

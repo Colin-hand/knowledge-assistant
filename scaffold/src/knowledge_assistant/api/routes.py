@@ -18,28 +18,6 @@ async def chat(req: ChatRequest, token: str = Depends(get_token)) -> ChatRespons
     )
 
 
-@router.get("/sources")
-async def sources(token: str = Depends(get_token)) -> dict:
-    # Proxy to the MCP list_sources tool so the ACL decision stays at the boundary.
-    import json
-    import sys
-
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-
-    params = StdioServerParameters(
-        command=sys.executable, args=["-m", "knowledge_assistant.mcp_server.server"]
-    )
-    async with stdio_client(params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool("list_sources", {"token": token})
-    payload = result.structuredContent or json.loads(result.content[0].text)
-    if "result" in payload and "status" not in payload:
-        payload = payload["result"]
-    return payload
-
-
 @router.get("/healthz")
 async def healthz() -> dict:
     s = get_settings()

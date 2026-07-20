@@ -4,8 +4,7 @@ from pydantic import BaseModel, Field
 
 from knowledge_assistant.models import AgentAnswer
 
-# Closed set (not free text): the tone value reaches the generator system
-# prompt, so it must never be a caller-controlled injection channel.
+# Closed set: the tone value reaches the system prompt.
 Tone = Literal["professional", "friendly", "concise"]
 
 

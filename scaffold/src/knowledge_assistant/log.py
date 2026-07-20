@@ -9,9 +9,7 @@ from knowledge_assistant.config import get_settings
 _trace_id: ContextVar[str] = ContextVar("trace_id", default="-")
 _configured = False
 
-# Third-party loggers that are correct but noisy at their default levels:
-# pypdf warns per skipped emoji-font CMap entry (cosmetic; text extraction is
-# unaffected), httpx/httpcore log one INFO line per outbound HTTP request.
+# Quiet noisy third-party loggers.
 _NOISY_LOGGERS = {"pypdf": logging.ERROR, "httpx": logging.WARNING, "httpcore": logging.WARNING}
 
 
@@ -19,6 +17,11 @@ def new_trace_id() -> str:
     tid = uuid.uuid4().hex[:12]
     _trace_id.set(tid)
     return tid
+
+
+def set_trace_id(tid: str) -> None:
+    """Adopt a trace id from another process."""
+    _trace_id.set(tid)
 
 
 def current_trace_id() -> str:

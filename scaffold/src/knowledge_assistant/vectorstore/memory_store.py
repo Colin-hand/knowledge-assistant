@@ -1,9 +1,4 @@
-"""In-memory VectorStore with Pinecone-compatible filter semantics.
-
-Backs the offline test suite (esp. test_access_control) so the ACL filtering
-logic is provable without network access. Filter support mirrors what
-`pinecone_store` uses: $eq, $ne, $in (any-overlap on list-valued fields), $and.
-"""
+"""In-memory VectorStore mirroring Pinecone filter semantics (tests)."""
 
 import math
 

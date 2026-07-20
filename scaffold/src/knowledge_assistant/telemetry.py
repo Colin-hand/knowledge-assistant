@@ -1,9 +1,4 @@
-"""Wraps every OpenAI call with token, cost, and latency accounting.
-
-All LLM/embedding traffic in the codebase goes through `chat_parse` / `embed`
-so that per-request summaries (returned in the API `meta` field) and the
-JSONL log always agree. Prices come from env config — never hardcoded.
-"""
+"""Wraps every OpenAI call with token, cost, latency accounting."""
 
 import time
 from contextvars import ContextVar

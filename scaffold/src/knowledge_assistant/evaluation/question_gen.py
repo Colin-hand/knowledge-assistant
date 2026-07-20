@@ -1,18 +1,7 @@
-"""Generate user-proxy eval questions from ORIGINAL document text (not chunks).
+"""Question-pool CLI: python -m knowledge_assistant.evaluation.question_gen [--all | --doc ID]
 
-CLI: python -m knowledge_assistant.evaluation.question_gen [--all | --doc ID ...]
-
-Modes:
-  (default)   auto-scan: generate only for manifest documents that have no
-              questions in the pool yet (covers newly added knowledge)
-  --doc ID    regenerate for the named document(s); other docs' questions kept
-  --all       regenerate the entire pool
-
-Newly generated questions pass the quality judge (quality.py) before entering
-the pool at eval/question_bank/questions.json. Documents longer than MAX_DOC_CHARS
-are split into page-aligned parts first (char-split as a last resort for a
-single oversized page); ≤ MAX_QUESTIONS_PER_DOC per document, doc-level ACL
-tagged so the access-control suite knows who is entitled to ask.
+Generates from original document text; archived docs excluded;
+new questions pass the quality judge.
 """
 
 import argparse
@@ -78,7 +67,7 @@ def select_targets(
 
 
 def _doc_parts(doc_text_pages: list[str]) -> list[str]:
-    """Page-aligned parts of at most MAX_DOC_CHARS; char-split oversized pages."""
+    """Page-aligned parts of at most MAX_DOC_CHARS."""
     parts: list[str] = []
     current: list[str] = []
     size = 0
@@ -122,10 +111,17 @@ async def run(regen_all: bool = False, doc_ids: list[str] | None = None) -> dict
     telemetry.start_request()
     t0 = time.perf_counter()
 
-    docs = load_manifest().documents
+    all_docs = load_manifest().documents
+    # Archived docs never generate questions; purge existing ones.
+    archived_ids = {d.doc_id for d in all_docs if d.status == "archived"}
+    docs = [d for d in all_docs if d.doc_id not in archived_ids]
+    if doc_ids and (bad := sorted(archived_ids & set(doc_ids))):
+        raise ValueError(f"archived document(s) not eligible for question generation: {bad}")
     existing = load_pool()
     targets = select_targets(docs, existing, regen_all, doc_ids)
     report: dict = {"generated": {}, "skipped": [], "pool_size": len(existing)}
+    if archived_ids:
+        report["archived_excluded"] = sorted(archived_ids)
     if not targets:
         logger.info("question_gen_nothing_to_do", extra={"pool_size": len(existing)})
         report["note"] = "all documents already have questions; use --all or --doc to regenerate"
@@ -143,12 +139,16 @@ async def run(regen_all: bool = False, doc_ids: list[str] | None = None) -> dict
         logger.info("eval_questions_generated", extra={"doc_id": doc.doc_id, "n": len(qs)})
         new_questions.extend(qs)
 
-    # Quality-gate only the newly generated questions before they enter the pool.
+    # Quality-gate new questions before pooling.
     from knowledge_assistant.evaluation.quality import filter_questions
 
     kept = await filter_questions(new_questions)
     target_ids = {d.doc_id for d in targets}
-    pool = [q for q in existing if q.source_doc_id not in target_ids] + kept
+    pool = [
+        q
+        for q in existing
+        if q.source_doc_id not in target_ids and q.source_doc_id not in archived_ids
+    ] + kept
 
     s.question_bank_dir.mkdir(parents=True, exist_ok=True)
     (s.question_bank_dir / "questions.json").write_text(

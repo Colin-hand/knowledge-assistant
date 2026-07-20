@@ -1,11 +1,4 @@
-"""Per-chunk relevance filtering, invoked in parallel.
-
-One LLM call per chunk extracts verbatim-relevant sentences; irrelevant
-chunks are dropped. Results map back to full chunk metadata by chunk_id;
-`text` becomes the verbatim extract.
-
-TODO (scale): batch chunks per call or swap in a cross-encoder reranker.
-"""
+"""Parallel per-chunk relevance extraction; irrelevant chunks dropped."""
 
 import asyncio
 
@@ -45,7 +38,7 @@ async def _compress_one(query: str, chunk: Chunk, sem: asyncio.Semaphore) -> Chu
         try:
             result = await telemetry.chat_parse("compressor", messages, CompressResult)
         except Exception as exc:
-            # Fail open per chunk: keep the original text rather than drop evidence.
+            # Fail open: keep the original chunk on error.
             logger.warning("compressor_chunk_failed", extra={"chunk_id": chunk.chunk_id, "error": str(exc)})
             return chunk
     if not result.has_relevant_content or not result.extract.strip():

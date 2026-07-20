@@ -1,6 +1,4 @@
-"""Bearer-token extraction. The API layer passes the token through UNRESOLVED —
-role resolution happens only at the MCP boundary. Here we just reject a
-missing/blank header early with 401."""
+"""Bearer-token extraction; roles resolve only at the MCP boundary."""
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

@@ -1,17 +1,11 @@
-"""Agent orchestrator: intent → MCP search → compress → generate → reply.
-
-The MCP server runs as a stdio subprocess spawned per request (fine at POC
-scale; a persistent session or streamable-HTTP server is the scaling step).
-The raw token travels with every tool call — roles are resolved only at the
-MCP boundary.
-"""
+"""Agent orchestrator: intent → MCP search → compress → generate → reply."""
 
 import json
 import sys
 import time
 
 from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp.client.stdio import get_default_environment, stdio_client
 
 from knowledge_assistant import telemetry
 from knowledge_assistant.agent import compressor, generator, intent, reply_logic
@@ -21,9 +15,12 @@ from knowledge_assistant.models import AgentAnswer, SearchResponse
 
 logger = get_logger(__name__)
 
-_SERVER_PARAMS = StdioServerParameters(
-    command=sys.executable, args=["-m", "knowledge_assistant.mcp_server.server"]
-)
+def _server_params() -> StdioServerParameters:
+    return StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "knowledge_assistant.mcp_server.server"],
+        env={**get_default_environment(), "KA_TRACE_ID": current_trace_id()},
+    )
 
 
 def _last_assistant_kind(history: list[dict] | None) -> str | None:
@@ -34,7 +31,7 @@ def _last_assistant_kind(history: list[dict] | None) -> str | None:
 
 
 async def _call_search(token: str, query: str) -> SearchResponse:
-    async with stdio_client(_SERVER_PARAMS) as (read, write):
+    async with stdio_client(_server_params()) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool(
@@ -80,8 +77,7 @@ async def answer(
                 logger.warning("manipulation_blocked", extra={"reason": gate.reason})
                 return _finish(reply_logic.refused())
             case "unclear":
-                # Hard cap: one clarification round. A second consecutive
-                # "unclear" settles instead of looping.
+                # One clarification round max.
                 if _last_assistant_kind(history) == "clarify":
                     return _finish(reply_logic.clarify_exhausted())
                 return _finish(reply_logic.clarify_request(gate.reason))

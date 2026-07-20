@@ -1,9 +1,4 @@
-"""Pinecone serverless VectorStore impl.
-
-Serverless indexes don't support delete-by-metadata-filter, so incremental
-re-ingestion deletes by id prefix — chunk ids are `{doc_id}:{page}:{seq}`,
-making `doc_id` the prefix by design.
-"""
+"""Pinecone serverless VectorStore; deletes by chunk-id prefix."""
 
 from functools import lru_cache
 
@@ -60,7 +55,7 @@ class PineconeStore:
         ]
 
     def _ids_for_doc(self, doc_id: str) -> list[str]:
-        # list() yields pages; page items are ListItem objects (v9) or bare id strings.
+        # Page items may be objects or bare id strings.
         ids: list[str] = []
         for page in self._index.list(prefix=f"{doc_id}:"):
             ids.extend(item.id if hasattr(item, "id") else str(item) for item in page)

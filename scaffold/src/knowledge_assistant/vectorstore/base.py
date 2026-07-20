@@ -1,10 +1,4 @@
-"""VectorStore protocol — every impl enforces the ACL filter inside the query.
-
-`search` takes `acl_roles` as a REQUIRED argument with no default: no code
-path can run a vector search without an access filter attached (security
-invariant §0.4-1). `extra_filter` uses Pinecone-style operators
-($eq/$ne/$in/$and), which the in-memory test store mirrors exactly.
-"""
+"""VectorStore protocol; acl_roles is required — no unfiltered search."""
 
 from typing import Protocol
 
@@ -28,7 +22,7 @@ class VectorStore(Protocol):
 
 
 def chunk_metadata(chunk: Chunk) -> dict:
-    """Flat metadata payload stored alongside each vector (None values omitted)."""
+    """Flat metadata stored alongside each vector."""
     meta = {
         "doc_id": chunk.doc_id,
         "title": chunk.title,

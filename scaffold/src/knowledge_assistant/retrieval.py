@@ -1,14 +1,4 @@
-"""ACL-scoped retrieval over team-specific and company-wide knowledge.
-
-Both scopes are ALWAYS searched and merged by similarity score, so
-company-wide documents that disagree with team documents (e.g. an outdated
-team playbook price vs the current global pricing sheet) reach the generator
-together and conflicts can be flagged — the generator can only flag
-disagreement between chunks it sees.
-
-The ACL condition is attached by the store on both queries; no unfiltered
-code path exists (security invariant §0.4-1).
-"""
+"""Dual-scope ACL retrieval; both scopes always searched and merged."""
 
 import time
 from typing import Literal

@@ -1,11 +1,6 @@
-"""KB creation/update pipeline. CLI:
+"""KB ingestion CLI: python -m knowledge_assistant.ingestion.pipeline [--rebuild]
 
-    python -m knowledge_assistant.ingestion.pipeline [--rebuild]
-
-Idempotent: per-doc content hash → unchanged docs are skipped; changed docs
-are deleted (by chunk-id prefix) and re-inserted. The manifest is the
-authority: PDFs on disk that aren't listed are skipped with a warning
-(no ACL → no ingestion, deny by default).
+Idempotent by content hash; unlisted PDFs are never ingested.
 """
 
 import argparse

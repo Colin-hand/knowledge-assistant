@@ -49,8 +49,7 @@ def _render_chunk(chunk: Chunk) -> str:
 
 
 def validate_citations(output: GeneratorOutput, chunks: list[Chunk]) -> tuple[list[Citation], bool]:
-    """Groundedness check: drop citations pointing outside the provided set;
-    zero valid citations degrades the answer to insufficient_evidence."""
+    """Drop unknown citations; zero valid ones → insufficient evidence."""
     by_id = {c.chunk_id: c for c in chunks}
     valid: list[Citation] = []
     for raw in output.citations:
@@ -85,7 +84,7 @@ async def generate(
     ]
     output = await telemetry.chat_parse("generator", messages, GeneratorOutput)
     citations, grounded = validate_citations(output, chunks)
-    # Code-level staleness guarantee, independent of the model honoring the prompt.
+    # Force stale_source whenever an archived chunk is cited.
     if any(c.status == "archived" for c in citations) and "stale_source" not in output.flags:
         output.flags.append("stale_source")
     return output, citations, grounded

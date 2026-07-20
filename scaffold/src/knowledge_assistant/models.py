@@ -87,7 +87,7 @@ class AgentAnswer(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    """Structured payload returned by the `search_knowledge` MCP tool."""
+    """Payload of the search_knowledge MCP tool."""
 
     status: Literal["ok", "no_result", "error"]
     scope: Literal["team", "global", "both", "none"] = "none"

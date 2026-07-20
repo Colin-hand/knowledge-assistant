@@ -1,6 +1,4 @@
-"""Evaluation prompt templates — ICIO, same conventions as agent/prompts.py:
-prompts state behavior, output-field semantics live on the Pydantic schemas.
-"""
+"""Evaluation prompt templates."""
 
 from knowledge_assistant.agent.prompts import UNTRUSTED_OPEN
 
@@ -42,6 +40,28 @@ A question and the id of its source document.
 </Input>
 <Output>
 Two 1–5 scores; each score's meaning is defined in the response schema.
+</Output>
+"""
+
+RELEVANCY_JUDGE_SYSTEM = """\
+<Instruction>
+Score how relevant each candidate question is to the user's question on a
+1-5 scale: 5 = asks for the same information; 4 = answering the candidate
+would mostly answer the user; 3 = overlapping topic, partial answer;
+2 = same domain, different information need; 1 = unrelated.
+Return one score per candidate, in input order.
+</Instruction>
+<Context>
+Candidates are questions that retrieved document excerpts can answer. The
+scores measure whether retrieval brought back material that answers what the
+user actually asked.
+</Context>
+<Input>
+The user's question, then a numbered list of candidate questions.
+</Input>
+<Output>
+A structured score list; each field's meaning is defined in the response
+schema.
 </Output>
 """
 

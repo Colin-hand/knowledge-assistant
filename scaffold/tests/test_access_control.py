@@ -58,8 +58,7 @@ def test_merged_scope_returns_team_and_global(populated_store):
 
 
 def test_conflicting_team_and_global_docs_both_retrieved(populated_store):
-    # The conflict-flag prerequisite: a team doc and a disagreeing global doc
-    # must BOTH reach the generator (Sam: $79 playbook vs $99 pricing sheet).
+    # Conflicting team and global docs must both surface.
     chunks, _ = _search(populated_store, ["sales", "marketing"])
     docs = {c.doc_id for c in chunks}
     assert "u_sam/sales-playbook.pdf" in docs
@@ -67,8 +66,7 @@ def test_conflicting_team_and_global_docs_both_retrieved(populated_store):
 
 
 def test_global_only_role_still_acl_filtered(populated_store):
-    # A role with no team-specific docs in this corpus receives only global
-    # chunks (never someone else's team docs).
+    # Roles without team docs get only global chunks.
     chunks, scope = _search(populated_store, ["ops"])
     assert scope == "global"
     assert chunks, "ops should still see company-wide docs"

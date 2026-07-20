@@ -1,11 +1,8 @@
-"""Terminal-state messaging — pure Python, no LLM, one place for tone.
-
-NO_INFO wording is deliberately identical for "document doesn't exist" and
-"user isn't entitled" so the existence of restricted material never leaks.
-"""
+"""Templated terminal replies — no LLM involved."""
 
 from knowledge_assistant.models import AgentAnswer
 
+# Same wording for missing vs unauthorized — no existence leak.
 NO_INFO = (
     "I couldn't find anything on that in the documents available to you. "
     "Feel free to rephrase, or ask me about something else — happy to keep looking!"
@@ -47,7 +44,7 @@ def clarify_request(question: str) -> AgentAnswer:
 
 
 def clarify_exhausted() -> AgentAnswer:
-    # One clarification round max — the settled reply when it didn't converge.
+    # Settled reply after the single clarification round.
     return AgentAnswer(kind="out_of_domain", text=_CLARIFY_EXHAUSTED)
 
 

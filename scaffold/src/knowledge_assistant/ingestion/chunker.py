@@ -1,23 +1,13 @@
-"""Heading-aware section chunking that never crosses page boundaries.
-
-This corpus extracts with no blank lines, so headings are the structure
-signal: a short line without terminal punctuation starts a new section.
-Over-detection (e.g. table rows) is harmless — consecutive sections are
-re-packed greedily up to MAX_CHARS.
-
-A confidential-marker line ALWAYS starts a section, and marker sections are
-never packed with other content, so a restricted section can never share a
-chunk (and thus an ACL) with general text. No overlap by design: sections
-are self-contained, and tail-overlap could smear restricted text into a
-chunk with a broader ACL.
-"""
+"""Heading-aware chunking; never crosses pages; marker sections isolated."""
 
 from dataclasses import dataclass
 
+from knowledge_assistant.config import get_settings
 from knowledge_assistant.ingestion.loader import PageText
 from knowledge_assistant.ingestion.markers import EXEC_MARKER
 
-MAX_CHARS = 2000  # hard cap per chunk (≈500 tokens)
+# Hard cap per chunk; bound at import time.
+MAX_CHARS = get_settings().chunk_max_chars
 _TERMINAL_PUNCT = (".", "!", "?", ":", ";", ",")
 
 
@@ -86,7 +76,7 @@ def chunk_pages(pages: list[PageText]) -> list[RawChunk]:
             marked = bool(EXEC_MARKER.search(section))
             for piece in _split_oversize(section):
                 if marked:
-                    # Marker sections are isolated: flushed out alone, never packed.
+                    # Marker sections stay alone, never packed.
                     flush()
                     chunks.append(RawChunk(page=page.page, seq=seq, text=piece))
                     seq += 1

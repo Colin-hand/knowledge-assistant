@@ -1,17 +1,3 @@
-"""Agent prompt templates.
-
-Structure: ICIO (Instruction/Context/Input/Output) for the intent gate and
-compressor — strict input→output transforms; RISEN (Role/Instructions/Steps/
-End Goal/Narrowing) for the generator, where constraints carry the behavior.
-
-Output-field semantics are defined ONCE, on the Pydantic response schemas —
-Field descriptions reach the model inside the enforced JSON schema. Prompts
-state behavior; schemas state the output contract.
-
-Retrieved document text is ALWAYS wrapped via `untrusted_block` — content
-inside is reference data, never instructions (security invariant §0.4-3).
-"""
-
 UNTRUSTED_OPEN = "<untrusted_document_content>"
 UNTRUSTED_CLOSE = "</untrusted_document_content>"
 
@@ -20,9 +6,7 @@ def untrusted_block(text: str) -> str:
     return f"{UNTRUSTED_OPEN}\n{text}\n{UNTRUSTED_CLOSE}"
 
 
-# Response tones. Keys are the API contract (ChatRequest.tone is a Literal over
-# them); the value is the style instruction appended to the generator system
-# prompt. Tone shapes wording only — grounding/citation rules always win.
+# Style instruction appended to the generator prompt; grounding rules win.
 DEFAULT_TONE = "professional"
 TONES: dict[str, str] = {
     "professional": (

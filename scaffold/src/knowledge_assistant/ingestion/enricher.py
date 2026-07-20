@@ -1,15 +1,4 @@
-"""Attach manifest metadata + effective ACL to raw chunks.
-
-Effective ACL = manifest `access` list, unless the chunk text carries the
-confidential marker, in which case it is demoted to ["exec"].
-`is_global` is derived AFTER overrides, so a demoted chunk inside a
-company-wide doc is correctly non-global (and lands in the team-specific
-retrieval pass, visible only to exec).
-
-The marker regex is shared with the chunker (ingestion/markers.py), which
-guarantees a marker section is an isolated chunk — so the demotion here
-restricts only the confidential section, not the whole document.
-"""
+"""Attach manifest metadata; marker chunks demoted to exec-only."""
 
 from knowledge_assistant.iam.service import known_roles
 from knowledge_assistant.ingestion.chunker import RawChunk

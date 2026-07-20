@@ -1,18 +1,17 @@
-"""Evaluation dashboard — reads eval/runs/ artifacts written by
-`python -m knowledge_assistant.evaluation.evaluate` (retrieval or e2e mode).
-
-Single-series charts throughout (validated series blue); every chart has a
-native hover tooltip and a table view alongside.
-"""
+"""Evaluation dashboard over eval/runs/ artifacts."""
 
 import json
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 RUNS_DIR = Path(__file__).resolve().parents[2] / "eval" / "runs"
-SERIES = "#3987e5"  # validated categorical slot 1 (dark-surface step)
+SERIES = "#3987e5"  # series color (validated, dark surface)
+MISS = "#d03b3b"  # missed-segment red (validated pair)
+SURFACE = "#0e1117"  # chart surface; segment-gap stroke
+INK_MUTED = "#c9cad1"
 
 st.set_page_config(page_title="Evaluation Dashboard", page_icon="📊", layout="wide")
 st.title("📊 Evaluation Dashboard")
@@ -53,7 +52,8 @@ tiles[1].metric(
 if mode == "retrieval":
     tiles[2].metric("Hit-rate@k", f"{report['retrieval']['hit_rate_at_k']:.1%}")
     tiles[3].metric("MRR", f"{report['retrieval']['mrr']:.3f}")
-    tiles[4].metric("Reversed relevancy", f"{report['reversed_relevancy_mean']:.3f}")
+    relevancy_mean = report.get("relevancy_score_mean", report.get("reversed_relevancy_mean"))
+    tiles[4].metric("Relevancy score", f"{relevancy_mean:.2f} / 5" if relevancy_mean else "—")
 else:
     tiles[2].metric("Citation hit-rate", f"{report['citation_hit_rate']:.1%}")
     tiles[3].metric("Avg latency", f"{report['avg_latency_ms'] / 1000:.1f} s")
@@ -67,7 +67,7 @@ if not results:
     st.stop()
 df = pd.DataFrame(results)
 # Normalize artifacts written by older pipeline versions.
-df = df.rename(columns={"pass_used": "scope"})
+df = df.rename(columns={"pass_used": "scope", "reversed_relevancy": "relevancy_score"})
 if "scope" not in df.columns:
     df["scope"] = "?"
 
@@ -80,51 +80,107 @@ if mode == "retrieval":
     left, right = st.columns(2)
 
     with left:
-        st.subheader("Hit-rate by document")
+        st.subheader("Questions hit vs missed, by document")
         doc_stats = (
             df.groupby("source_doc_id")
-            .agg(questions=("hit", "size"), hit_rate=("hit", "mean"),
-                 relevancy=("reversed_relevancy", "mean"))
+            .agg(questions=("hit", "size"), n_hit=("hit", "sum"))
             .reset_index()
-            .sort_values("hit_rate")
         )
-        st.bar_chart(doc_stats, x="source_doc_id", y="hit_rate", color=SERIES, horizontal=True)
-        with st.expander("Table view"):
-            st.dataframe(doc_stats, width="stretch", hide_index=True)
+        doc_stats["n_missed"] = doc_stats["questions"] - doc_stats["n_hit"]
+        doc_stats["hit_rate"] = doc_stats["n_hit"] / doc_stats["questions"]
+        doc_stats["doc"] = (
+            doc_stats["source_doc_id"].str.split("/").str[-1].str.replace(".pdf", "", regex=False)
+        )
+        # Worst documents first.
+        doc_order = doc_stats.sort_values(["hit_rate", "doc"])["doc"].tolist()
+        long = doc_stats.melt(
+            id_vars=["doc", "source_doc_id", "questions", "hit_rate"],
+            value_vars=["n_hit", "n_missed"],
+            var_name="result",
+            value_name="n",
+        )
+        long["result"] = long["result"].map({"n_hit": "hit", "n_missed": "missed"})
+        long["stack_order"] = (long["result"] == "missed").astype(int)
+        bars = (
+            alt.Chart(long)
+            .mark_bar(height=14, stroke=SURFACE, strokeWidth=2)
+            .encode(
+                x=alt.X("n:Q", title="questions", axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y("doc:N", sort=doc_order, title=None),
+                color=alt.Color(
+                    "result:N",
+                    scale=alt.Scale(domain=["hit", "missed"], range=[SERIES, MISS]),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                order=alt.Order("stack_order:Q"),
+                tooltip=[
+                    alt.Tooltip("source_doc_id:N", title="document"),
+                    alt.Tooltip("result:N", title="result"),
+                    alt.Tooltip("n:Q", title="questions"),
+                    alt.Tooltip("hit_rate:Q", title="hit rate", format=".0%"),
+                ],
+            )
+        )
+        labels = (
+            alt.Chart(doc_stats)
+            .mark_text(align="left", dx=6, color=INK_MUTED)
+            .encode(
+                x=alt.X("questions:Q"),
+                y=alt.Y("doc:N", sort=doc_order, title=None),
+                text=alt.Text("label:N"),
+            )
+            .transform_calculate(label="datum.n_hit + '/' + datum.questions")
+        )
+        st.altair_chart(
+            (bars + labels).properties(height=26 * len(doc_stats) + 20),
+            width="stretch",
+        )
+        st.caption(
+            "Bar length = questions asked per source document; red segment = "
+            "questions whose source never surfaced (label: hit/total)."
+        )
 
     with right:
-        st.subheader("Reversed-relevancy distribution")
-        bins = pd.cut(df["reversed_relevancy"], [i / 10 for i in range(11)], right=False)
-        hist = (
-            bins.value_counts().sort_index().rename_axis("relevancy").reset_index(name="questions")
-        )
-        hist["relevancy"] = hist["relevancy"].astype(str)
-        st.bar_chart(hist, x="relevancy", y="questions", color=SERIES)
-        st.caption("Per-query mean of per-chunk max similarity (input question vs reversed questions).")
-
-    st.subheader("Retrieval score vs. reversed-question similarity (per chunk)")
-    chunk_rows = pd.DataFrame(
-        [
-            {
-                "retrieval score": c["retrieval_score"],
-                "reversed max similarity": c["max_similarity"],
-                "document": c["doc_id"],
-                "chunk": c["chunk_id"],
-            }
-            for r in results
-            for c in r.get("chunks", [])
-        ]
-    )
-    if not chunk_rows.empty:
-        st.scatter_chart(chunk_rows, x="retrieval score", y="reversed max similarity", color=SERIES)
-        st.caption(
-            "Bottom-right = retrieved with confidence but can't answer the question "
-            "(noise); score-floor candidates live on the left edge."
-        )
+        st.subheader("Relevancy score per question")
+        vals = pd.to_numeric(df["relevancy_score"], errors="coerce").dropna()
+        if not vals.empty:
+            mean_v = float(vals.mean())
+            median_v = float(vals.median())
+            p80_v = float(vals.quantile(0.8))
+            bars = (
+                alt.Chart(pd.DataFrame({"score": vals}))
+                .mark_bar(color=SERIES)
+                .encode(
+                    x=alt.X("score:Q", bin=alt.Bin(step=1), title="relevancy score (1–5)"),
+                    y=alt.Y("count()", title="questions"),
+                )
+            )
+            stats = pd.DataFrame(
+                {
+                    "value": [mean_v, median_v, p80_v],
+                    "stat": [
+                        f"mean {mean_v:.2f}",
+                        f"median {median_v:.2f}",
+                        f"p80 {p80_v:.2f}",
+                    ],
+                }
+            )
+            rules = (
+                alt.Chart(stats)
+                .mark_rule(strokeWidth=2, strokeDash=[6, 3])
+                .encode(x=alt.X("value:Q"), color=alt.Color("stat:N", title=""))
+            )
+            st.altair_chart(bars + rules, width="stretch")
+            st.caption(
+                "Relevancy score per input question = max 1–5 judge score among "
+                "its reversed questions. Headline tile = average of these scores."
+            )
+        else:
+            st.info("No judge scores in this run — re-run the evaluation to populate them.")
 
     st.subheader("Per-question results")
     table = df[_cols(df, ["question", "source_doc_id", "entitled_user", "scope", "hit",
-                          "rank", "reversed_relevancy"])]
+                          "rank", "relevancy_score"])]
     st.dataframe(table, width="stretch", hide_index=True)
 
     with st.expander("🔎 Question drill-down (retrieved chunks + reversed questions)"):
@@ -134,16 +190,16 @@ if mode == "retrieval":
         st.markdown(
             f"**Source:** `{row['source_doc_id']}` · **user:** {row['entitled_user']} · "
             f"**scope:** {scope} · **hit:** {row['hit']} (rank {row['rank']}) · "
-            f"**relevancy:** {row['reversed_relevancy']:.3f}"
+            f"**relevancy score:** {row.get('relevancy_score', row.get('reversed_relevancy', 0)):.3f}"
         )
         for c in row.get("chunks", []):
             score = c.get("retrieval_score")
             score_txt = f"{score:.3f}" if score is not None else "n/a"
             st.markdown(
-                f"`{c['chunk_id']}` — score {score_txt}, max sim {c['max_similarity']:.3f}"
+                f"`{c['chunk_id']}` — score {score_txt}, max judge {c.get('max_judge', 0)}/5"
             )
-            for rq, sim in zip(c["reversed_questions"], c["similarities"]):
-                st.markdown(f"- {sim:.3f} · {rq}")
+            for rq, js in zip(c["reversed_questions"], c.get("judge_scores", [])):
+                st.markdown(f"- {js}/5 · {rq}")
 
 # ---- E2E mode -----------------------------------------------------------------------
 else:

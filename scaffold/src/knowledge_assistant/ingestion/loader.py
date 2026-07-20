@@ -20,8 +20,7 @@ class PdfLoadError(Exception):
 
 
 def _normalize(text: str) -> str:
-    # NFKC folds PDF ligatures (ﬁ ﬂ ﬀ → fi fl ff) and non-breaking spaces to
-    # plain ASCII — marker matching and embeddings must see clean text.
+    # NFKC folds ligatures and odd whitespace.
     return unicodedata.normalize("NFKC", text)
 
 

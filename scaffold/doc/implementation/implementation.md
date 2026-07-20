@@ -1,6 +1,6 @@
 # Implementation Plan — Internal Knowledge Assistant (POC)
 
-> Derived from `doc/solution_design/solution_design.png` and the challenge `README.md`.
+> Derived from `doc/solution_design/Solution_Architecture.png` and the challenge `README.md`.
 > Grounded in the actual scaffold data: `data/users.json`, `data/pdfs/manifest.json`, 12 PDFs.
 
 ---
@@ -28,7 +28,8 @@ scaffold/
 ├── frontend/
 │   ├── app.py                      # Streamlit UI (thin — talks to FastAPI over HTTP only)
 │   └── pages/
-│       └── 1_evaluation_dashboard.py   # eval results dashboard (reads eval/runs/)
+│       ├── 1_request_details.py        # per-request telemetry drill-down (reads logs/)
+│       └── 2_evaluation_dashboard.py   # eval results dashboard (reads eval/runs/)
 ├── src/
 │   └── knowledge_assistant/
 │       ├── __init__.py
@@ -38,7 +39,7 @@ scaffold/
 │       ├── models.py               # User, DocumentMeta, Chunk, SearchResult, AgentAnswer, Citation
 │       ├── api/
 │       │   ├── main.py             # FastAPI app factory, middleware (trace id, error handler)
-│       │   ├── routes.py           # POST /chat, GET /sources, GET /healthz
+│       │   ├── routes.py           # POST /chat, GET /healthz
 │       │   ├── schemas.py          # request/response models (reuse models.py types)
 │       │   └── deps.py             # Bearer-token extraction dependency
 │       ├── iam/
@@ -55,7 +56,7 @@ scaffold/
 │       │   └── memory_store.py     # in-memory impl, same filter semantics (tests)
 │       ├── retrieval.py            # merged dual-scope ACL search (shared by MCP server + eval)
 │       ├── mcp_server/
-│       │   └── server.py           # FastMCP: search_knowledge, get_document, list_sources
+│       │   └── server.py           # FastMCP: search_knowledge
 │       ├── agent/
 │       │   ├── intent.py           # intent gate (classify + query rewrite)
 │       │   ├── compressor.py       # per-chunk relevance extraction, parallel (§3.4)
@@ -138,7 +139,6 @@ Token counts come from the API response `usage`; cost is computed from env-confi
 | Route | Auth | Body / Response |
 |---|---|---|
 | `POST /chat` | Bearer token (required) | `{query, history}` → `AgentAnswer + meta{cost_usd, latency_ms, stage_breakdown, tokens}` |
-| `GET /sources` | Bearer token (required) | Documents the caller may read (proxies MCP `list_sources`) |
 | `GET /healthz` | none | liveness + vector store connectivity |
 
 - `deps.py` extracts the Bearer token and passes it through **unresolved** — the API layer does not resolve roles; that happens at the MCP boundary (§0.4-2). The API only rejects a missing/blank header early with 401.
@@ -239,8 +239,6 @@ Every tool takes a `token` parameter; the server calls `iam.resolve_token()` its
 | Tool | Signature | Behavior |
 |---|---|---|
 | `search_knowledge` | `(token, query, top_k=8, include_archived=False)` | Embed query → dual-scope ACL-filtered search (below). Returns chunks with full citation metadata (`doc_id, title, page, period, source, status, superseded_by, score, text`). Empty → structured `{status: "no_result"}`, distinct from errors. |
-| `get_document` | `(token, doc_id)` | Full metadata + all chunks of one document **iff** `user.roles ∩ doc.access ≠ ∅`; otherwise the same not-found response as a nonexistent id (no existence leak). |
-| `list_sources` | `(token)` | Only documents the user may read (title, period, source, status). Grounds "what do you know about?" questions honestly. |
 
 ### Retrieval strategy — merged dual-scope search
 
@@ -306,7 +304,7 @@ Requires a non-empty pool. Default evaluates **every** pooled question; `--num-q
 **`--mode retrieval` (default)** — measures the retrieval layer directly. Per sampled question, run as a user entitled to the source doc:
 
 - **a. Retrieval quality:** merged dual-scope search top-k → **hit-rate@k** (source doc in results) + **MRR**.
-- **b. Reverse-question relevancy:** each retrieved chunk is reversed into up to 5 questions it can answer (LLM, **cached per chunk_id** — a chunk is reversed once per run, ≤1 call per chunk in the corpus). The input question is compared against each reversed question by embedding cosine → per-chunk max similarity; per-query **reversed relevancy** = mean of per-chunk max. Measures whether what came back can actually answer what was asked. Low relevancy with high hit-rate = right doc, noisy chunks; low both = retrieval failure.
+- **b. Reverse-question relevancy:** each retrieved chunk is reversed into up to 5 questions it can answer (LLM, **cached per chunk_id** — a chunk is reversed once per run, ≤1 call per chunk in the corpus). An LLM judge then scores each reversed question against the input question on a **1–5 relevancy scale** (one batched call per query); per input question, the **relevancy score** = max of its judge scores (best candidate), and the report headline is the average of per-question scores. Measures whether what came back can actually answer what was asked. Low relevancy with high hit-rate = right doc, noisy chunks; low both = retrieval failure.
 - **c. Access control (the one that matters):** the same query retried as every `users.json` user *without* access to the source doc. **Pass = zero chunks from that doc and zero chunks whose ACL excludes the user. Any failure exits non-zero.** Doubles as `test_access_control.py` in pytest so it runs in CI, not just in reports.
 - Fixed behavioral scenarios (hand-written, keyed to the planted traps) stay in the suite: pricing-conflict → conflict flag + $99 preferred; brand-guidelines → v3 cited, not archived v2; injection probe via `q2-pipeline-report.pdf` → embedded instruction not obeyed; Maria asks compensation → uniform no-result wording, zero leakage; exec-only all-hands paragraph → answerable by Erin only.
 
@@ -314,11 +312,11 @@ Requires a non-empty pool. Default evaluates **every** pooled question; `--num-q
 
 ### 6.3 Outputs — inputs for later visualization
 
-`report.json` (summary incl. `mode`, pool size, sample size, seed; retrieval mode: hit-rate, MRR, reversed-relevancy mean; e2e mode: citation hit-rate, kind distribution, flag counts, avg latency; both: access pass/fail, cost, duration), `results.json` (per-query detail — retrieval mode: retrieved chunks + raw scores, reversed questions + similarities, access sweep; e2e mode: answer text, kind, flags, cited docs, per-stage cost/latency, access sweep), `reversed_questions.json` (chunk → reversed-questions cache).
+`report.json` (summary incl. `mode`, pool size, sample size, seed; retrieval mode: hit-rate, MRR, relevancy-score mean; e2e mode: citation hit-rate, kind distribution, flag counts, avg latency; both: access pass/fail, cost, duration), `results.json` (per-query detail — retrieval mode: retrieved chunks + raw scores, reversed questions + 1–5 judge scores, access sweep; e2e mode: answer text, kind, flags, cited docs, per-stage cost/latency, access sweep), `reversed_questions.json` (chunk → reversed-questions cache).
 
-- Trade-off: reversed relevancy depends on the reversal LLM's question quality; the per-chunk cache keeps its cost linear in corpus size, not query count. Sampled runs trade metric stability for cost — small N wobbles run-to-run unless seeded.
+- Trade-off: the relevancy score depends on the reversal LLM's question quality; the per-chunk cache keeps its cost linear in corpus size, not query count. Sampled runs trade metric stability for cost — small N wobbles run-to-run unless seeded.
 - Score-floor tuning needs no code: `SCORE_FLOOR` is env config and `results.json` retains every returned chunk's raw score — run once with `SCORE_FLOOR=0`, then sweep candidate floors offline against the stored scores.
-- **TODO (next step):** MLflow-track each eval run (params: models, top_k, score floor, sample size/seed; metrics + artifacts above) for run-over-run comparison; the Streamlit **evaluation dashboard page** (`frontend/pages/1_evaluation_dashboard.py`) renders `report.json`/`results.json` — metric tiles, access banner, per-doc hit-rate, relevancy distribution, score-vs-similarity scatter, per-question drill-down (mode-aware for retrieval/e2e); add answer-level faithfulness grading if the POC graduates.
+- **TODO (next step):** MLflow-track each eval run (params: models, top_k, score floor, sample size/seed; metrics + artifacts above) for run-over-run comparison; the Streamlit **evaluation dashboard page** (`frontend/pages/2_evaluation_dashboard.py`) renders `report.json`/`results.json` — metric tiles, access banner, per-doc hit-rate, relevancy distribution, score-vs-similarity scatter, per-question drill-down (mode-aware for retrieval/e2e); add answer-level faithfulness grading if the POC graduates.
 
 ---
 

@@ -1,8 +1,4 @@
-"""LLM-as-judge quality filter over generated eval questions.
-
-Scores answerability-from-source and specificity (1–5); questions below the
-average threshold are dropped so the eval set stays honest.
-"""
+"""LLM judge drops generated questions below the quality threshold."""
 
 import asyncio
 

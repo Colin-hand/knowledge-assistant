@@ -1,9 +1,4 @@
-"""Token → user resolution backed by data/users.json (the data is the policy).
-
-Static demo tokens per the challenge scope. TODO (auth roadmap): replace
-`resolve_token` with signed-JWT validation (signature, expiry, scopes) —
-this module is the single seam to swap.
-"""
+"""Token → user resolution backed by data/users.json."""
 
 import json
 from functools import lru_cache

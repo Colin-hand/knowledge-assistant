@@ -1,47 +1,14 @@
-"""KB evaluation pipeline. CLI:
+"""KB evaluation CLI: python -m knowledge_assistant.evaluation.evaluate
+[--mode retrieval|e2e] [--num-questions N] [--seed S]
 
-    python -m knowledge_assistant.evaluation.evaluate [--mode retrieval|e2e]
-                                                      [--num-questions N] [--seed S]
-
-Requires a question pool (run question_gen first). By default every pooled
-question is evaluated; --num-questions N tests a random sample of N from the
-pool (--seed makes the sample reproducible).
-
-Modes:
-  retrieval (default) — measures the retrieval layer directly (below).
-  e2e — simulates a real user: each question runs through the FULL app path
-        (intent rewrite → MCP boundary → compressor → generator) via
-        orchestrator.answer(token, question), as the entitled user and as
-        every unentitled user. Metrics: citation hit-rate, answer-kind
-        distribution, flag counts, per-question cost/latency; access check =
-        no citation to a document the user cannot read. EXPENSIVE: ~10 LLM
-        calls per question per user — prefer a small --num-questions sample.
-
-Retrieval-mode flow, per sampled question:
-  1. retrieve top-k chunks from the live vector store as an entitled user
-     → hit-rate@k + MRR against the question's source document
-  2. reverse each retrieved chunk into up to 5 questions it can answer
-     (LLM, cached per chunk_id — a chunk is reversed once per run)
-  3. compare the input question against each reversed question by embedding
-     cosine → per-chunk max similarity, per-query "reversed relevancy"
-     (mean of per-chunk max) — measures whether what came back can answer
-     what was asked, free of chunk-vocabulary bias
-  4. access control: retry the same query as every unentitled user; any chunk
-     from the source doc, or any chunk whose ACL excludes them, fails the run
-     (non-zero exit)
-
-Outputs in eval/runs/ (inputs for later visualization):
-  report.json              — summary metrics + cost/duration
-  results.json             — per-query detail (retrieved chunks, scores,
-                             reversed questions, similarities, access sweep)
-  reversed_questions.json  — chunk_id → reversed questions cache
-TODO: MLflow run tracking; a dashboard can read results.json as-is.
+retrieval: hit-rate@k, MRR, judged relevancy score, access sweep.
+e2e: full agent path per question and user.
+Writes report.json / results.json; exits non-zero on access leaks.
 """
 
 import argparse
 import asyncio
 import json
-import math
 import random
 import sys
 import time
@@ -52,7 +19,7 @@ from pydantic import BaseModel, Field
 from knowledge_assistant import retrieval, telemetry
 from knowledge_assistant.agent.prompts import untrusted_block
 from knowledge_assistant.config import get_settings
-from knowledge_assistant.evaluation.prompts import REVERSE_QUESTIONS_SYSTEM
+from knowledge_assistant.evaluation.prompts import RELEVANCY_JUDGE_SYSTEM, REVERSE_QUESTIONS_SYSTEM
 from knowledge_assistant.evaluation.question_gen import load_pool
 from knowledge_assistant.iam.service import all_users
 from knowledge_assistant.log import get_logger, new_trace_id
@@ -76,20 +43,20 @@ def _unentitled_users(roles: list[str]) -> list[User]:
     return [u for u in all_users() if not set(u.roles) & set(roles)]
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
-    return dot / (na * nb) if na and nb else 0.0
+class RelevancyScores(BaseModel):
+    scores: list[int] = Field(
+        default_factory=list,
+        description="One 1-5 relevancy score per candidate question, in input order.",
+    )
 
 
 class _ReverseCache:
-    """chunk_id → (reversed questions, their embeddings); one LLM call per chunk per run."""
+    """chunk_id → reversed questions; one call per chunk."""
 
     def __init__(self) -> None:
         self.questions: dict[str, list[str]] = {}
-        self.vectors: dict[str, list[list[float]]] = {}
 
-    async def get(self, chunk: Chunk) -> tuple[list[str], list[list[float]]]:
+    async def get(self, chunk: Chunk) -> list[str]:
         if chunk.chunk_id not in self.questions:
             messages = [
                 {"role": "system", "content": REVERSE_QUESTIONS_SYSTEM},
@@ -101,14 +68,31 @@ class _ReverseCache:
             ]
             out = await telemetry.chat_parse("eval_reverse", messages, ReversedQuestions)
             self.questions[chunk.chunk_id] = out.questions
-            self.vectors[chunk.chunk_id] = (
-                await telemetry.embed("eval_embed", out.questions) if out.questions else []
-            )
-        return self.questions[chunk.chunk_id], self.vectors[chunk.chunk_id]
+        return self.questions[chunk.chunk_id]
+
+
+async def _judge_relevancy(question: str, candidates: list[str]) -> list[int]:
+    """One 1-5 score per candidate, single batched call."""
+    if not candidates:
+        return []
+    numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(candidates))
+    messages = [
+        {"role": "system", "content": RELEVANCY_JUDGE_SYSTEM},
+        {"role": "user", "content": f"User question: {question}\n\nCandidates:\n{numbered}"},
+    ]
+    out = await telemetry.chat_parse("eval_judge", messages, RelevancyScores)
+    scores = [min(5, max(1, s)) for s in out.scores[: len(candidates)]]
+    if len(scores) < len(candidates):  # model miscounted — score missing ones lowest
+        logger.warning(
+            "judge_score_count_mismatch",
+            extra={"expected": len(candidates), "got": len(scores)},
+        )
+        scores += [1] * (len(candidates) - len(scores))
+    return scores
 
 
 async def _run_e2e(questions: list, pool_size: int, seed: int | None) -> dict:
-    """Simulate real app usage: full agent path per question, per user."""
+    """Full agent path per question, per user."""
     from knowledge_assistant.agent import orchestrator
     from knowledge_assistant.ingestion.pipeline import load_manifest
 
@@ -139,8 +123,7 @@ async def _run_e2e(questions: list, pool_size: int, seed: int | None) -> dict:
             total_cost += answer.meta.cost_usd
             latencies.append(answer.meta.latency_ms)
 
-        # Access check: an unentitled user must never receive a citation to a
-        # document they cannot read (answers from their own accessible docs are fine).
+        # Unentitled users must never cite restricted documents.
         leaks = []
         for outsider in _unentitled_users(q.access_roles):
             o_answer = await orchestrator.answer(outsider.token, q.question)
@@ -241,26 +224,29 @@ async def run(
         rank = returned_docs.index(q.source_doc_id) + 1 if hit else None
         rr.append(1.0 / rank if rank else 0.0)
 
-        # 2 + 3. reverse retrieved chunks into questions, compare by cosine
+        # 2+3. reverse chunks, judge each reversed question (1-5)
+        reversed_by_chunk = [(chunk, await cache.get(chunk)) for chunk in chunks]
+        flat = [rq for _, rqs in reversed_by_chunk for rq in rqs]
+        flat_scores = await _judge_relevancy(q.question, flat)
         chunk_results = []
-        for chunk in chunks:
-            reversed_qs, reversed_vecs = await cache.get(chunk)
-            sims = [round(_cosine(q_vec, rv), 4) for rv in reversed_vecs]
+        all_scores: list[int] = []
+        idx = 0
+        for chunk, rqs in reversed_by_chunk:
+            scores = flat_scores[idx : idx + len(rqs)]
+            idx += len(rqs)
+            all_scores.extend(scores)
             chunk_results.append(
                 {
                     "chunk_id": chunk.chunk_id,
                     "doc_id": chunk.doc_id,
                     "retrieval_score": chunk.score,
-                    "reversed_questions": reversed_qs,
-                    "similarities": sims,
-                    "max_similarity": max(sims) if sims else 0.0,
+                    "reversed_questions": rqs,
+                    "judge_scores": scores,
+                    "max_judge": max(scores) if scores else 0,
                 }
             )
-        relevancy = (
-            sum(c["max_similarity"] for c in chunk_results) / len(chunk_results)
-            if chunk_results
-            else 0.0
-        )
+        # Relevancy score = max judge score for this question.
+        relevancy = float(max(all_scores)) if all_scores else 0.0
         relevancies.append(relevancy)
 
         # 4. access control sweep
@@ -289,7 +275,7 @@ async def run(
                 "scope": scope,
                 "hit": hit,
                 "rank": rank,
-                "reversed_relevancy": round(relevancy, 4),
+                "relevancy_score": round(relevancy, 3),
                 "chunks": chunk_results,
                 "access_leaks": leaks,
             }
@@ -305,7 +291,8 @@ async def run(
             "hit_rate_at_k": round(sum(hits) / len(hits), 3) if hits else None,
             "mrr": round(sum(rr) / len(rr), 3) if rr else None,
         },
-        "reversed_relevancy_mean": (
+        # Average of per-question relevancy scores.
+        "relevancy_score_mean": (
             round(sum(relevancies) / len(relevancies), 3) if relevancies else None
         ),
         "access_control": {"passed": not access_failures, "failures": access_failures},

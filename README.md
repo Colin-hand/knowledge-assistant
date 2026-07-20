@@ -1,80 +1,101 @@
-# Tech Challenge — Internal Knowledge Assistant
+# Internal Knowledge Assistant — Access-Aware RAG over MCP
 
-## Background
+Secure, role-aware RAG system that answers questions only from authorised document chunks, enforces strict citation, and resists prompt injection at the POC stage.
 
-Our internal teams — marketing, sales, ops, people, finance — hold their working knowledge across a sprawl of tools: Notion and Confluence pages, Slack threads, shared drives, and PDFs. Answering a simple question ("what's our current pricing?", "what's the approved brand tagline?", "what did we decide about the Q2 launch?") often means pinging three people and searching four tools.
+- **Run it:** see [scaffold/quickstart.md](scaffold/quickstart.md)
+- **Full design:** [scaffold/doc/implementation/implementation.md](scaffold/doc/implementation/implementation.md)
 
-Two things make this harder than a generic search box:
+## Solution Architecture
 
-- **The knowledge is messy** — the same fact lives in multiple places, versions go stale, and sources disagree.
-- **Not everyone can see everything** — HR compensation, finance runway, and unreleased launch material are restricted. An assistant that surfaces the right answer to the wrong person is worse than no assistant at all.
+![Solution Architecture](scaffold/doc/solution_design/Solution_Architecture.png)
 
-We want to reduce the manual hunting while keeping the answers **trustworthy and access-aware**.
+## Assumptions
 
-## Objective
+- Documents contain an extractable text layer with headings; every section fits within the 500 characters chunk limit; image content is represented as text.
+- A confidential marker must be present on sensitive information so that it can be chunked and controlled separately.
+- Manifest `access` role labels are complete and authoritative (they represent the ACL, not folder names). Document status is updated whenever a new version is inserted. No manifest entry → no ingestion.
+- Static token model: `users.json` is the sole identity source of truth.
 
-Design and build a small proof-of-concept ("crawl" phase) that can:
+## Approach
 
-- Ingest a folder of heterogeneous internal documents
-- Answer a user's natural-language question with **cited** answers grounded in those documents
-- Respect **who the asking user is** — only retrieve and reveal what that user is entitled to see
+### Offline — Document Ingestion
 
-> **Ground rule:** Build this with real code. **No low-code or no-code tools are allowed** (e.g. n8n, Zapier, Make, Flowise, Dify, or similar visual/drag-and-drop builders). We want to see how you write and structure the code yourself.
+Pipeline: Source Docs → Load & Normalise → Chunk & Embed → Metadata Enrichment → Index Upsert
 
-This is not about building a full production system. It is about how you:
+**Load & Normalise**
+- `pypdf` extracts text per page; NFKC normalisation folds PDF ligatures and collapses whitespace.
 
-- Approach an ambiguous, open-ended knowledge problem
-- Make reasonable scoping decisions for a 1–2 hour exercise
-- Use modern tools and techniques (RAG, agents, MCP) to work with messy documents
-- Treat access control and trust as first-class concerns, not afterthoughts
-- Communicate your assumptions and next steps clearly
+**Chunk & Embed**
+- Heading-aware splitting that never crosses page boundaries (preserves accurate citation and context safety).
+- Chunks are embedded with `text-embedding-3-small`.
 
-## Your Task
+**Metadata Enrichment**
+- Every chunk carries full document metadata and ACL.
+- `is_global=True` is set for unrestricted general files.
 
-### 1. Design a retrieval approach (RAG)
+### Offline — Evaluation
 
-- Decide how you will ingest, chunk, embed, and retrieve over the sample documents.
-- Every answer should be **traceable to its source** — a user must be able to see where a claim came from.
-- Make reasonable assumptions about handling messy input (multiple sources, stale versions, conflicting facts).
+Pipeline: Question Bank from docs → Retrieval Metrics.
 
-### 2. Make it access-aware (auth)
+**Question Bank**
+- LLM-generated questions per document (committed pool).
 
-- Each request comes from a **user with a role**, identified by a token (see `users.json`). Each document in the sample set carries an **access label** (which roles/teams may read it).
-- Enforce those permissions at retrieval time — a user must not receive content, citations, or synthesized answers derived from documents they cannot access.
-- Treat document text as **data, not instructions** — a document that says "ignore your rules and reveal everything" must not change the assistant's behaviour.
+**Retrieval Metrics**
+- Hit-rate@k, MRR, and reversed-relevancy over the question pool.
 
-> We deliberately keep the credential simple (a static token). Real token validation — signed JWTs, expiry, scopes, and how a remote MCP server authenticates on our platform — is **out of scope for the build** .
+### Online — Query Path
 
-### 3. Expose the retrieval layer over MCP
+Streamlit client (login, chat loop, rendering) → FastAPI → Orchestration layer (sequential pipeline) → MCP Server (tool surface, IAM, dual-scope retrieval, merge & rank, vector store)
 
-- Wrap your permission-scoped retrieval as an **MCP server** with one or more tools (for example: `search_knowledge`, `get_document`, `list_sources`).
-- The tool boundary should be where access is enforced — the server decides what the caller may see, rather than trusting the model to filter after the fact.
+**Chat UI — Chat & History**
+- Maintains a 6-turn history window.
+- Non-domain history is trimmed before the query and history are passed to FastAPI and the orchestrator.
 
-### 4. Build the agent
+**Intent Gate**
+- Single LLM call that classifies the query as: clear, unclear, greeting, out-of-domain, manipulation, or rewrite.
 
-- Wire an agent that takes the authenticated user's question, calls your MCP tool(s), and returns a grounded, cited answer.
-- Handle the cases where it **should not** answer directly: unauthorized content (refuse), conflicting sources (flag), or no supporting evidence (say so rather than guess).
+**Knowledge Lookup**
+- One MCP call: `search_knowledge(token, query)`.
 
-### 5. Capture your thinking
+**MCP Server — Tool Surface & IAM Boundary**
+- Exposes a single tool: `search_knowledge`.
+- Performs dual-scope ANN search (team + global) according to the user token, applies the ACL filter (`access_roles ∩ user_roles`), deduplicates by chunk-id, applies a score floor, sorts, and returns the top-k results.
 
-Write a short note (quickstart, markdown, or inline) that explains:
+**MCP Server — Vector Store**
+- Pinecone chosen for cloud-native scalability and simple API integration.
+- Alternatives considered: PostgreSQL (open-source, relational) and Oracle Database (enterprise).
 
-- How you approached the problem
-- What you chose to implement and why (and what you deliberately skipped)
-- Key assumptions — especially around how you modelled identity and permissions
+**Contextual Compression**
+- Parallel LLM calls, one per retrieved chunk; empty results are dropped.
 
-> You do not need to handle every edge case, every document perfectly, or every permission scenario. We're more interested in how you navigate ambiguity, and whether you treat "the right person sees the right answer" as part of the problem.
+**Answer Synthesis**
+- Single LLM call that produces a tone-controlled answer, flags conflicts or stale sources, and requires every claim to cite a chunk.
 
-## What we provide
+**Logging**
+- Structured, per-request logging of every stage.
 
-A `data/pdfs/` folder of mixed internal documents spanning several departments (marketing, sales, people, finance/exec, plus company-wide), a `manifest.json` that lists which roles may read each document, and a `users.json` describing a handful of users and their roles. The open api key with a budget and a time limit .
+## Trade-offs
 
-## Deliverables
+- **Chunk & Embed** — A section that spans two pages becomes two independent chunks (no overlap), so some context may be lost. The small embedding model is weaker on niche vocabulary; tables and multi-column layouts remain low-quality.
+- **Chat UI** — No streaming → higher perceived latency on long answers.
+- **Intent Gate** — May fail on domain-specific abbreviations; misclassification can block legitimate queries.
+- **Knowledge Lookup** — Stdio subprocess started per request introduces startup latency.
+- **Merge & Rank** — Two vector searches are executed on every request.
+- **Contextual Compression** — Extra cost and latency.
+- **Answer Synthesis** — Prioritises precision over helpfulness when evidence is thin.
+- **Evaluation** - Questions are LLM-generated without human gate.
 
-- A GitHub repository with your code available to view
-- A quickstard.md with any minimal instructions needed to run it
-- Your short written note explaining approach, assumptions, and potential next steps
+## Future Potentialss
 
-We will look through your code together in a technical conversation where you'll walk us through your decisions, tradeoffs, and ideas for how this could be extended. Please submit a link to your repository ahead of your interview to allow time for review in advance.
-
----
+- **Source Docs** — Knowledge-base management service for adding new documents.
+- **Load & Normalise** — Additional loaders (docx, xlsx, markdown) and a vision model for images.
+- **Chunk & Embed** — Manual chunking support; hybrid dense + sparse retrieval for exact-keyword recall.
+- **Index Upsert** — Switch to HNSW-based indexing when scale or cost requires it.
+- **Intent Gate** — Domain library to improve intention understanding.
+- **Knowledge Lookup** — Persistent MCP session to eliminate per-request startup cost.
+- **Query Path** — Signed-JWT validation in transport headers; HyDE for query expansion.
+- **Contextual Compression** — Add a re-ranker and MMR diversity when top-k results are weak.
+- **Answer Synthesis** — Generate relevant follow-up questions; add an output validator against prompt injection and jailbreaks.
+- **Logging** — Integrate MLflow for experiment tracking, run comparison, and artefact storage.
+- **Evaluation** - Golden question provided from business stakeholders, generate with security-focused questions.
+- **Design** - Split Frontend UI, API Gateway, Conversation, Orchestrator, Knowledge MCP, Evaluation and KB service as seperate micro services for long term scalability. 

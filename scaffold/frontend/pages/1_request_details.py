@@ -1,11 +1,4 @@
-"""🔍 Request Details — per-request telemetry drill-down.
-
-Reads logs/app.jsonl (written by the backend for every request) and groups
-events by trace_id. The chat page shows a one-line summary under each answer
-("$0.0057 · 6609 ms · 7 LLM calls …"); this page shows where that time and
-money actually went: stage breakdown, every LLM call, retrieval and MCP
-audit events.
-"""
+"""Per-request telemetry drill-down over logs/app.jsonl."""
 
 import json
 from pathlib import Path
@@ -43,7 +36,7 @@ by_trace: dict[str, list[dict]] = {}
 for ev in events:
     by_trace.setdefault(ev.get("trace_id", "-"), []).append(ev)
 
-# One row per chat request = per request_summary event, newest first.
+# One row per request_summary event, newest first.
 summaries = [ev for ev in events if ev.get("message") == "request_summary"]
 summaries = summaries[-MAX_REQUESTS:][::-1]
 if not summaries:
@@ -89,10 +82,14 @@ c4.metric(
 stages = summary.get("stage_breakdown", {})
 if stages:
     st.subheader("Stage breakdown")
+    # Numeric prefix keeps pipeline order in the chart.
+    STAGE_ORDER = ["intent", "retrieval", "compress", "generate"]
+    named = [(k.removesuffix("_ms"), v) for k, v in stages.items()]
+    named.sort(key=lambda kv: STAGE_ORDER.index(kv[0]) if kv[0] in STAGE_ORDER else 99)
     stage_df = pd.DataFrame(
         {
-            "stage": [k.removesuffix("_ms") for k in stages],
-            "latency_ms": list(stages.values()),
+            "stage": [f"{i + 1}. {name}" for i, (name, _) in enumerate(named)],
+            "latency_ms": [v for _, v in named],
         }
     )
     st.bar_chart(stage_df, x="stage", y="latency_ms", horizontal=True)
@@ -118,8 +115,7 @@ if llm_calls:
         hide_index=True,
     )
 
-# The MCP server runs as a stdio subprocess with its own trace context, so its
-# events usually carry trace_id "-". Fall back to the most recent ones.
+# Old log entries lack the propagated trace_id; fall back.
 def _mcp_events(message: str, n: int = 6) -> tuple[list[dict], bool]:
     in_trace = [e for e in trace_events if e.get("message") == message]
     if in_trace:
@@ -132,8 +128,8 @@ if searches:
     st.subheader("Vector searches")
     if not correlated:
         st.caption(
-            "Most recent events — logged by the MCP subprocess, not correlated to "
-            "this trace_id."
+            "Most recent events — this trace predates trace propagation to the "
+            "MCP subprocess, so these are not correlated to it."
         )
     st.dataframe(
         pd.DataFrame(
@@ -156,8 +152,8 @@ if audits:
     st.subheader("MCP audit trail")
     if not correlated:
         st.caption(
-            "Most recent events — logged by the MCP subprocess, not correlated to "
-            "this trace_id."
+            "Most recent events — this trace predates trace propagation to the "
+            "MCP subprocess, so these are not correlated to it."
         )
     st.dataframe(
         pd.DataFrame(
