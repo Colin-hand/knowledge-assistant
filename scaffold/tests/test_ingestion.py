@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from knowledge_assistant.config import get_settings
-from knowledge_assistant.ingestion.chunker import MAX_CHARS, chunk_pages
+from knowledge_assistant.ingestion.chunker import MAX_TOKENS, chunk_pages, ntokens
 from knowledge_assistant.ingestion.enricher import enrich
 from knowledge_assistant.ingestion.loader import PageText, load_pdf
 from knowledge_assistant.ingestion.markers import EXEC_MARKER
@@ -29,7 +29,7 @@ def test_chunk_size_hard_capped():
     long_text = "\n".join(f"this is content line {i} that ends with a period." * 6 for i in range(40))
     chunks = chunk_pages([PageText(1, long_text)])
     assert len(chunks) > 1
-    assert all(len(c.text) <= MAX_CHARS for c in chunks)
+    assert all(ntokens(c.text) <= MAX_TOKENS for c in chunks)
 
 
 def test_heading_oversplit_repacked():
@@ -61,6 +61,32 @@ def test_marker_section_isolated_and_demoted():
     assert marked[0].is_global is False  # derived AFTER the override
     assert set(unmarked[0].access_roles) == set(ALL_ROLES)
     assert unmarked[0].is_global is True
+
+
+def test_overlap_present_but_never_crosses_confidential():
+    filler = "\n".join(f"General fact number {i} appears in this sentence." for i in range(60))
+    page = PageText(1, "\n".join([
+        "Notes",
+        filler,
+        "CONFIDENTIAL — EXECUTIVE COMMITTEE ONLY. hidden detail.",
+        "Appendix",
+        "Closing statement one.",
+        "Closing statement two.",
+    ]))
+    chunks = chunk_pages([page])
+    assert len(chunks) >= 4
+    # Sibling chunks share the previous chunk's tail.
+    tail = " ".join(chunks[0].text.split()[-3:])
+    assert tail in chunks[1].text
+    marker = next(c for c in chunks if "hidden detail" in c.text)
+    idx = chunks.index(marker)
+    # No overlap into the confidential chunk...
+    assert marker.text.startswith("CONFIDENTIAL")
+    # ...and none out of it into the next chunk.
+    after = chunks[idx + 1]
+    assert "hidden detail" not in after.text
+    pre_tail = " ".join(chunks[idx - 1].text.split()[-3:])
+    assert pre_tail not in after.text
 
 
 def test_enrich_rejects_unknown_role():

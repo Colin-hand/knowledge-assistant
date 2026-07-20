@@ -8,6 +8,13 @@ import pandas as pd
 import streamlit as st
 
 RUNS_DIR = Path(__file__).resolve().parents[2] / "eval" / "runs"
+
+try:
+    from knowledge_assistant.config import get_settings
+
+    CONFIG_K = get_settings().top_k
+except Exception:
+    CONFIG_K = None
 SERIES = "#3987e5"  # series color (validated, dark surface)
 MISS = "#d03b3b"  # missed-segment red (validated pair)
 SURFACE = "#0e1117"  # chart surface; segment-gap stroke
@@ -44,16 +51,76 @@ else:
         "Details at the bottom."
     )
 
+def _question_scores(r: dict, k: int | None = None) -> list[int]:
+    chunks = r.get("chunks", [])
+    if k is not None:
+        chunks = chunks[:k]
+    return [sc for c in chunks for sc in c.get("judge_scores", [])]
+
+
+def _p80(scores: list[int]) -> float:
+    return float(pd.Series(scores).quantile(0.8)) if scores else 0.0
+
+
+# Global view-k: chunks are stored ranked, so truncating to k reproduces a
+# k-run exactly; every view except the sweep recomputes at the selected k.
+view = None
+view_k = None
+run_k = 0
+has_judge = False
+if mode == "retrieval" and results:
+    run_k = max((len(r.get("chunks", [])) for r in results), default=0)
+    has_judge = any(c.get("judge_scores") for r in results for c in r.get("chunks", []))
+    if run_k:
+        view_k = st.selectbox(
+            "View metrics at k (recomputed from this run's ranked results)",
+            list(range(1, run_k + 1)),
+            index=run_k - 1,
+        )
+        hits_v, ranks_v, rr_v, rel_max_v, rel_p80_v = [], [], [], [], []
+        for r in results:
+            docs = [c["doc_id"] for c in r.get("chunks", [])[:view_k]]
+            hit = r["source_doc_id"] in docs
+            rank = docs.index(r["source_doc_id"]) + 1 if hit else None
+            hits_v.append(hit)
+            ranks_v.append(rank)
+            rr_v.append(1.0 / rank if rank else 0.0)
+            s = _question_scores(r, view_k)
+            rel_max_v.append(max(s) if s else 0)
+            rel_p80_v.append(_p80(s))
+        n = len(results)
+        view = {
+            "hit_rate": sum(hits_v) / n,
+            "mrr": sum(rr_v) / n,
+            "rel": sum(rel_max_v) / n,
+            "hits": hits_v,
+            "ranks": ranks_v,
+            "rel_max": rel_max_v,
+            "rel_p80": rel_p80_v,
+        }
+
 tiles = st.columns(5)
 tiles[0].metric("Mode", mode)
 tiles[1].metric(
     "Questions", f"{report.get('n_questions', 0)} / {report.get('pool_size', '?')} pool"
 )
 if mode == "retrieval":
-    tiles[2].metric("Hit-rate@k", f"{report['retrieval']['hit_rate_at_k']:.1%}")
-    tiles[3].metric("MRR", f"{report['retrieval']['mrr']:.3f}")
-    relevancy_mean = report.get("relevancy_score_mean", report.get("reversed_relevancy_mean"))
-    tiles[4].metric("Relevancy score", f"{relevancy_mean:.2f} / 5" if relevancy_mean else "—")
+    if view:
+        tiles[2].metric(f"Hit-rate@{view_k}", f"{view['hit_rate']:.1%}")
+        tiles[3].metric(f"MRR@{view_k}", f"{view['mrr']:.3f}")
+        tiles[4].metric(
+            f"Relevancy score @k={view_k}",
+            f"{view['rel']:.2f} / 5" if has_judge else "—",
+        )
+    else:
+        tiles[2].metric("Hit-rate@k", f"{report['retrieval']['hit_rate_at_k']:.1%}")
+        tiles[3].metric("MRR", f"{report['retrieval']['mrr']:.3f}")
+        relevancy_mean = report.get(
+            "relevancy_score_mean", report.get("reversed_relevancy_mean")
+        )
+        tiles[4].metric(
+            "Relevancy score", f"{relevancy_mean:.2f} / 5" if relevancy_mean else "—"
+        )
 else:
     tiles[2].metric("Citation hit-rate", f"{report['citation_hit_rate']:.1%}")
     tiles[3].metric("Avg latency", f"{report['avg_latency_ms'] / 1000:.1f} s")
@@ -77,6 +144,13 @@ def _cols(frame: pd.DataFrame, wanted: list[str]) -> list[str]:
 
 # ---- Retrieval mode -----------------------------------------------------------------
 if mode == "retrieval":
+    if view:
+        # All per-question views below reflect the selected k.
+        df["hit"] = view["hits"]
+        df["rank"] = view["ranks"]
+        df["relevancy_score"] = [round(x, 3) for x in view["rel_max"]]
+        df["relevancy_p80"] = [round(x, 3) for x in view["rel_p80"]]
+
     left, right = st.columns(2)
 
     with left:
@@ -142,7 +216,16 @@ if mode == "retrieval":
 
     with right:
         st.subheader("Relevancy score per question")
-        vals = pd.to_numeric(df["relevancy_score"], errors="coerce").dropna()
+        if has_judge and view:
+            agg = st.radio(
+                "Per-question aggregation over its reversed questions",
+                ["Max", "p80"],
+                horizontal=True,
+            )
+            vals = pd.Series(view["rel_max"] if agg == "Max" else view["rel_p80"])
+        else:
+            agg = "Max"
+            vals = pd.to_numeric(df["relevancy_score"], errors="coerce").dropna()
         if not vals.empty:
             mean_v = float(vals.mean())
             median_v = float(vals.median())
@@ -172,27 +255,86 @@ if mode == "retrieval":
             )
             st.altair_chart(bars + rules, width="stretch")
             st.caption(
-                "Relevancy score per input question = max 1–5 judge score among "
-                "its reversed questions. Headline tile = average of these scores."
+                f"Per input question at k={view_k or 'run'}: {agg} of the 1–5 judge "
+                "scores across the reversed questions of its top-k chunks."
             )
         else:
             st.info("No judge scores in this run — re-run the evaluation to populate them.")
 
+    # Chunks are stored ranked, so truncating to k' < run-k reproduces a k' run
+    # exactly — metrics for every smaller k come free from one high-k run.
+    def _metrics_at_k(k: int) -> dict:
+        hits_k, rr_k, rel_max_k, rel_p80_k = [], [], [], []
+        for r in results:
+            top = r.get("chunks", [])[:k]
+            docs = [c["doc_id"] for c in top]
+            hit = r["source_doc_id"] in docs
+            hits_k.append(hit)
+            rr_k.append(1.0 / (docs.index(r["source_doc_id"]) + 1) if hit else 0.0)
+            scores = _question_scores(r, k)
+            rel_max_k.append(max(scores) if scores else 0)
+            rel_p80_k.append(_p80(scores))
+        n = len(results) or 1
+        return {
+            "k": k,
+            "hit_rate": sum(hits_k) / n,
+            "mrr": sum(rr_k) / n,
+            "relevancy_max": sum(rel_max_k) / n,
+            "relevancy_p80": sum(rel_p80_k) / n,
+        }
+
+    if run_k > 1:
+        st.subheader(f"Top-k sweep — recomputed from this run (k ≤ {run_k})")
+        sweep = pd.DataFrame([_metrics_at_k(k) for k in range(1, run_k + 1)])
+        cols = st.columns(4)
+        for col, metric, title in (
+            (cols[0], "hit_rate", "Hit-rate@k"),
+            (cols[1], "mrr", "MRR"),
+            (cols[2], "relevancy_max", "Relevancy (Max)"),
+            (cols[3], "relevancy_p80", "Relevancy (p80)"),
+        ):
+            with col:
+                chart = (
+                    alt.Chart(sweep)
+                    .mark_line(point=True, color=SERIES)
+                    .encode(
+                        x=alt.X("k:Q", axis=alt.Axis(tickMinStep=1), title="k"),
+                        y=alt.Y(f"{metric}:Q", title=title),
+                        tooltip=["k", metric],
+                    )
+                )
+                if CONFIG_K and CONFIG_K <= run_k:
+                    rule = (
+                        alt.Chart(pd.DataFrame({"k": [CONFIG_K]}))
+                        .mark_rule(strokeDash=[4, 3], color=INK_MUTED)
+                        .encode(x="k:Q")
+                    )
+                    chart = chart + rule
+                st.altair_chart(chart, width="stretch")
+        st.caption(
+            "Exact recomputation by truncating this run's ranked results — run once "
+            "with a high --top-k and read every smaller k from here."
+            + (f" Dashed rule = configured TOP_K ({CONFIG_K})." if CONFIG_K else "")
+        )
+
     st.subheader("Per-question results")
+    if "relevancy_p80" not in df.columns:
+        df["relevancy_p80"] = [round(_p80(_question_scores(r)), 3) for r in results]
     table = df[_cols(df, ["question", "source_doc_id", "entitled_user", "scope", "hit",
-                          "rank", "relevancy_score"])]
+                          "rank", "relevancy_score", "relevancy_p80"])]
     st.dataframe(table, width="stretch", hide_index=True)
 
     with st.expander("🔎 Question drill-down (retrieved chunks + reversed questions)"):
         picked = st.selectbox("Question", df["question"].tolist())
         row = next(r for r in results if r["question"] == picked)
+        drow = df[df["question"] == picked].iloc[0]
         scope = row.get("scope", row.get("pass_used", "?"))
         st.markdown(
             f"**Source:** `{row['source_doc_id']}` · **user:** {row['entitled_user']} · "
-            f"**scope:** {scope} · **hit:** {row['hit']} (rank {row['rank']}) · "
-            f"**relevancy score:** {row.get('relevancy_score', row.get('reversed_relevancy', 0)):.3f}"
+            f"**scope:** {scope} · **hit:** {drow['hit']} (rank {drow['rank']}) · "
+            f"**relevancy score:** {drow.get('relevancy_score', 0):.3f}"
         )
-        for c in row.get("chunks", []):
+        for c in row.get("chunks", [])[: view_k or None]:
             score = c.get("retrieval_score")
             score_txt = f"{score:.3f}" if score is not None else "n/a"
             st.markdown(
@@ -235,6 +377,62 @@ else:
         st.markdown(f"> {row['answer'] or '(no answer text)'}")
         if row.get("stage_breakdown"):
             st.json(row["stage_breakdown"])
+
+# ---- Run comparison (top-k sweep) ---------------------------------------------------
+history_path = RUNS_DIR / "history.jsonl"
+if history_path.exists():
+    runs = [json.loads(ln) for ln in history_path.read_text().splitlines() if ln.strip()]
+    rdf = pd.DataFrame(
+        [
+            {
+                "ts": r.get("ts"),
+                "top_k": (r.get("params") or {}).get("top_k"),
+                "questions": r.get("n_questions"),
+                "hit_rate": (r.get("retrieval") or {}).get("hit_rate_at_k"),
+                "mrr": (r.get("retrieval") or {}).get("mrr"),
+                "relevancy": r.get("relevancy_score_mean"),
+                "cost_usd": r.get("cost_usd"),
+            }
+            for r in runs
+            if r.get("mode") == "retrieval" and r.get("ts")
+        ]
+    )
+    if not rdf.empty:
+        st.divider()
+        st.subheader("Run comparison — top-k sweep")
+        rdf["when"] = pd.to_datetime(rdf["ts"], unit="s").dt.strftime("%m-%d %H:%M")
+        st.dataframe(
+            rdf.sort_values("ts", ascending=False)[
+                ["when", "top_k", "questions", "hit_rate", "mrr", "relevancy", "cost_usd"]
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+        latest = rdf.sort_values("ts").groupby("top_k", as_index=False).last()
+        if len(latest) > 1:
+            cols = st.columns(3)
+            for col, metric, title in (
+                (cols[0], "hit_rate", "Hit-rate@k"),
+                (cols[1], "mrr", "MRR"),
+                (cols[2], "relevancy", "Relevancy score"),
+            ):
+                with col:
+                    chart = (
+                        alt.Chart(latest)
+                        .mark_line(point=True, color=SERIES)
+                        .encode(
+                            x=alt.X("top_k:Q", axis=alt.Axis(tickMinStep=1), title="top-k"),
+                            y=alt.Y(f"{metric}:Q", title=title),
+                            tooltip=["top_k", metric],
+                        )
+                    )
+                    st.altair_chart(chart, width="stretch")
+            st.caption("Latest retrieval run per top-k value.")
+        else:
+            st.caption(
+                "One top-k value so far — run `evaluate --top-k K` with other values "
+                "to populate the sweep."
+            )
 
 # ---- Access failures detail ---------------------------------------------------------
 if not access.get("passed"):

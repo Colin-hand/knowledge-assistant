@@ -9,6 +9,7 @@ import time
 from mcp.server.fastmcp import FastMCP
 
 from knowledge_assistant import retrieval, telemetry
+from knowledge_assistant.config import get_settings
 from knowledge_assistant.iam.service import AuthenticationError, resolve_token
 from knowledge_assistant.log import get_logger, set_trace_id
 from knowledge_assistant.models import SearchResponse
@@ -29,7 +30,7 @@ def _audit(tool: str, user_id: str, t0: float, **fields) -> None:
 
 @mcp.tool()
 async def search_knowledge(
-    token: str, query: str, top_k: int = 8, include_archived: bool = False
+    token: str, query: str, top_k: int | None = None, include_archived: bool = False
 ) -> dict:
     """Permission-scoped semantic search over the knowledge base.
 
@@ -44,7 +45,11 @@ async def search_knowledge(
         return _AUTH_ERROR
     vec = (await telemetry.embed("query_embed", [query]))[0]
     chunks, scope = retrieval.search_accessible(
-        get_store(), user.roles, vec, top_k=top_k, include_archived=include_archived
+        get_store(),
+        user.roles,
+        vec,
+        top_k=top_k or get_settings().top_k,
+        include_archived=include_archived,
     )
     _audit("search_knowledge", user.id, t0, scope=scope, n_results=len(chunks),
            include_archived=include_archived)

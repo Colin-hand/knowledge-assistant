@@ -24,8 +24,11 @@ Runs the offline suite in `tests/` (includes the access-control tests) — no AP
 ## 3. Build the knowledge base
 
 ```bash
-python -m knowledge_assistant.ingestion.pipeline
+python -m knowledge_assistant.ingestion.pipeline            # incremental: skips unchanged documents
+python -m knowledge_assistant.ingestion.pipeline --rebuild  # full re-ingestion
 ```
+
+Document content changed → plain run. Pipeline config changed (chunk size, overlap, embed model) → `--rebuild`
 
 ## 4. Run
 
@@ -39,8 +42,9 @@ Sign in as a user in the sidebar and click a **Quick test** — each case notes 
 ## 5. Evaluate (optional)
 
 ```bash
-python -m knowledge_assistant.evaluation.question_gen   # build the question pool
-python -m knowledge_assistant.evaluation.evaluate       # metrics + access sweep
+python -m knowledge_assistant.evaluation.question_gen         # build the question pool
+python -m knowledge_assistant.evaluation.evaluate             # metrics + access sweep
+python -m knowledge_assistant.evaluation.evaluate --top-k 8   # one high-k run; the dashboard recomputes every smaller k
 ```
 
 Results show on the app's **Evaluation Dashboard** page; per-request telemetry on **Request Details**. Logs: `logs/app.jsonl`.

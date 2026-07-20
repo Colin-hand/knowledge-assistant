@@ -5,6 +5,7 @@ openai==2.46.0
 mcp==1.28.1
 pinecone==9.1.0
 pypdf==6.14.2
+tiktoken==0.13.0
 streamlit==1.59.2
 altair==6.2.2
 pandas==3.0.3

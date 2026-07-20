@@ -25,10 +25,11 @@ class Settings(BaseSettings):
     embed_dimension: int = 1536
 
     # Ingestion
-    chunk_max_chars: int = 500  # hard cap per chunk; override via CHUNK_MAX_CHARS
+    chunk_max_tokens: int = 125  # hard cap per chunk; override via CHUNK_MAX_TOKENS
+    chunk_overlap_tokens: int = 10  # sibling-chunk tail overlap; 0 disables
 
     # Retrieval
-    top_k: int = 8
+    top_k: int = 3
     score_floor: float = 0.25
 
     # Agent

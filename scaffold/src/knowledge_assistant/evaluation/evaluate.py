@@ -161,6 +161,8 @@ async def _run_e2e(questions: list, pool_size: int, seed: int | None) -> dict:
 
     report = {
         "mode": "e2e",
+        "ts": int(time.time()),
+        "params": {"top_k": s.top_k},
         "pool_size": pool_size,
         "n_questions": len(results),
         "seed": seed,
@@ -175,12 +177,21 @@ async def _run_e2e(questions: list, pool_size: int, seed: int | None) -> dict:
     s.eval_runs_dir.mkdir(parents=True, exist_ok=True)
     (s.eval_runs_dir / "report.json").write_text(json.dumps(report, indent=2))
     (s.eval_runs_dir / "results.json").write_text(json.dumps(results, indent=2))
+    _append_history(s.eval_runs_dir, report)
     logger.info("evaluation_complete", extra={"report": report})
     return report
 
 
+def _append_history(runs_dir, report: dict) -> None:
+    with (runs_dir / "history.jsonl").open("a") as f:
+        f.write(json.dumps(report) + "\n")
+
+
 async def run(
-    num_questions: int | None = None, seed: int | None = None, mode: str = "retrieval"
+    num_questions: int | None = None,
+    seed: int | None = None,
+    mode: str = "retrieval",
+    top_k: int | None = None,
 ) -> dict:
     s = get_settings()
     new_trace_id()
@@ -217,7 +228,7 @@ async def run(
             continue
 
         # 1. retrieval as an entitled user
-        chunks, scope = retrieval.search_accessible(store, user.roles, q_vec)
+        chunks, scope = retrieval.search_accessible(store, user.roles, q_vec, top_k=top_k)
         returned_docs = [c.doc_id for c in chunks]
         hit = q.source_doc_id in returned_docs
         hits.append(hit)
@@ -252,7 +263,7 @@ async def run(
         # 4. access control sweep
         leaks = []
         for outsider in _unentitled_users(q.access_roles):
-            leaked_chunks, _ = retrieval.search_accessible(store, outsider.roles, q_vec)
+            leaked_chunks, _ = retrieval.search_accessible(store, outsider.roles, q_vec, top_k=top_k)
             leaked = [c.chunk_id for c in leaked_chunks if c.doc_id == q.source_doc_id]
             acl_violations = [
                 c.chunk_id
@@ -284,6 +295,12 @@ async def run(
     meta = telemetry.summary((time.perf_counter() - t_start) * 1000)
     report = {
         "mode": "retrieval",
+        "ts": int(time.time()),
+        "params": {
+            "top_k": top_k or s.top_k,
+            "score_floor": s.score_floor,
+            "chunk_max_tokens": s.chunk_max_tokens,
+        },
         "pool_size": len(pool),
         "n_questions": len(results),
         "seed": seed,
@@ -303,6 +320,7 @@ async def run(
     (s.eval_runs_dir / "report.json").write_text(json.dumps(report, indent=2))
     (s.eval_runs_dir / "results.json").write_text(json.dumps(results, indent=2))
     (s.eval_runs_dir / "reversed_questions.json").write_text(json.dumps(cache.questions, indent=2))
+    _append_history(s.eval_runs_dir, report)
     logger.info("evaluation_complete", extra={"report": report})
     return report
 
@@ -327,8 +345,17 @@ def main() -> None:
     parser.add_argument(
         "--seed", type=int, default=None, help="random seed for reproducible sampling"
     )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=None,
+        metavar="K",
+        help="retrieval top-k for this run (default: config); sweep values and compare on the dashboard",
+    )
     args = parser.parse_args()
-    report = asyncio.run(run(num_questions=args.num_questions, seed=args.seed, mode=args.mode))
+    report = asyncio.run(
+        run(num_questions=args.num_questions, seed=args.seed, mode=args.mode, top_k=args.top_k)
+    )
     print(json.dumps(report, indent=2))
     if not report["access_control"]["passed"]:
         sys.exit(1)

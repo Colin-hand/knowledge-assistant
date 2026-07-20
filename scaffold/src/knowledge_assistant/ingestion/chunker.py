@@ -2,13 +2,29 @@
 
 from dataclasses import dataclass
 
+import tiktoken
+
 from knowledge_assistant.config import get_settings
 from knowledge_assistant.ingestion.loader import PageText
 from knowledge_assistant.ingestion.markers import EXEC_MARKER
 
-# Hard cap per chunk; bound at import time.
-MAX_CHARS = get_settings().chunk_max_chars
+# Hard cap and sibling overlap in tokens; bound at import time.
+MAX_TOKENS = get_settings().chunk_max_tokens
+OVERLAP_TOKENS = get_settings().chunk_overlap_tokens
+_ENC = tiktoken.get_encoding("cl100k_base")
 _TERMINAL_PUNCT = (".", "!", "?", ":", ";", ",")
+
+# Body budget reserves room so overlap never breaks the hard cap.
+_BODY_BUDGET = MAX_TOKENS - OVERLAP_TOKENS - 1 if OVERLAP_TOKENS else MAX_TOKENS
+
+
+def ntokens(text: str) -> int:
+    return len(_ENC.encode(text))
+
+
+def _tail(text: str) -> str:
+    ids = _ENC.encode(text)
+    return _ENC.decode(ids[-OVERLAP_TOKENS:]) if len(ids) > OVERLAP_TOKENS else text
 
 
 @dataclass
@@ -24,7 +40,7 @@ def _is_heading(line: str) -> bool:
 
 
 def _sections(text: str) -> list[str]:
-    """Split page text into sections at heading-like and marker lines."""
+    """Split page text at heading-like and marker lines."""
     sections: list[list[str]] = []
     current: list[str] = []
     for line in text.split("\n"):
@@ -37,22 +53,22 @@ def _sections(text: str) -> list[str]:
     return [s for s in ("\n".join(sec).strip() for sec in sections) if s]
 
 
-def _split_oversize(section: str) -> list[str]:
-    """Line-level fallback for sections exceeding the cap."""
-    if len(section) <= MAX_CHARS:
+def _split_oversize(section: str, budget: int) -> list[str]:
+    """Line-level fallback for sections exceeding the budget."""
+    if ntokens(section) <= budget:
         return [section]
     pieces: list[str] = []
     current: list[str] = []
-    size = 0
     for line in section.split("\n"):
-        while len(line) > MAX_CHARS:  # pathological single line
-            pieces.append(line[:MAX_CHARS])
-            line = line[MAX_CHARS:]
-        if current and size + len(line) > MAX_CHARS:
+        while ntokens(line) > budget:  # pathological single line
+            ids = _ENC.encode(line)
+            pieces.append(_ENC.decode(ids[:budget]))
+            line = _ENC.decode(ids[budget:])
+        if current and ntokens("\n".join([*current, line])) > budget:
             pieces.append("\n".join(current))
-            current, size = [], 0
-        current.append(line)
-        size += len(line) + 1
+            current = [line]
+        else:
+            current.append(line)
     if current:
         pieces.append("\n".join(current))
     return pieces
@@ -63,28 +79,31 @@ def chunk_pages(pages: list[PageText]) -> list[RawChunk]:
     for page in pages:
         seq = 0
         packed: list[str] = []
-        size = 0
+        prev_tail: str | None = None
 
         def flush() -> None:
-            nonlocal seq, packed, size
+            nonlocal seq, packed, prev_tail
             if packed:
-                chunks.append(RawChunk(page=page.page, seq=seq, text="\n\n".join(packed)))
+                body = "\n\n".join(packed)
+                text = f"{prev_tail}\n{body}" if prev_tail and OVERLAP_TOKENS else body
+                chunks.append(RawChunk(page=page.page, seq=seq, text=text))
                 seq += 1
-                packed, size = [], 0
+                prev_tail = _tail(body)
+                packed = []
 
         for section in _sections(page.text):
-            marked = bool(EXEC_MARKER.search(section))
-            for piece in _split_oversize(section):
-                if marked:
-                    # Marker sections stay alone, never packed.
+            if EXEC_MARKER.search(section):
+                # Marker sections stay whole and alone; no overlap crosses them.
+                flush()
+                chunks.append(RawChunk(page=page.page, seq=seq, text=section))
+                seq += 1
+                prev_tail = None
+                continue
+            for piece in _split_oversize(section, _BODY_BUDGET):
+                if packed and ntokens("\n\n".join([*packed, piece])) > _BODY_BUDGET:
                     flush()
-                    chunks.append(RawChunk(page=page.page, seq=seq, text=piece))
-                    seq += 1
-                elif packed and size + len(piece) > MAX_CHARS:
-                    flush()
-                    packed, size = [piece], len(piece)
+                    packed = [piece]
                 else:
                     packed.append(piece)
-                    size += len(piece) + 2
         flush()
     return chunks

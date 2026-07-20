@@ -11,7 +11,7 @@ Secure, role-aware RAG system that answers questions only from authorised docume
 
 ## Assumptions
 
-- Documents contain an extractable text layer with headings; every section fits within the 500 characters chunk limit; image content is represented as text.
+- Documents contain an extractable text layer with headings; image content is represented as text.
 - A confidential marker must be present on sensitive information so that it can be chunked and controlled separately.
 - Manifest `access` role labels are complete and authoritative (they represent the ACL, not folder names). Document status is updated whenever a new version is inserted. No manifest entry → no ingestion.
 - Static token model: `users.json` is the sole identity source of truth.
@@ -26,8 +26,8 @@ Pipeline: Source Docs → Load & Normalise → Chunk & Embed → Metadata Enrich
 - `pypdf` extracts text per page; NFKC normalisation folds PDF ligatures and collapses whitespace.
 
 **Chunk & Embed**
-- Heading-aware splitting that never crosses page boundaries (preserves accurate citation and context safety).
-- Chunks are embedded with `text-embedding-3-small`.
+- Heading-aware splitting that never crosses page boundaries, overlap never crosses a confidential boundary (preserves accurate citation and context safety).
+- Chunks are embedded with `text-embedding-3-small`, with default chunk size 125, overlap 10 for more precise search.
 
 **Metadata Enrichment**
 - Every chunk carries full document metadata and ACL.
@@ -59,7 +59,7 @@ Streamlit client (login, chat loop, rendering) → FastAPI → Orchestration lay
 
 **MCP Server — Tool Surface & IAM Boundary**
 - Exposes a single tool: `search_knowledge`.
-- Performs dual-scope ANN search (team + global) according to the user token, applies the ACL filter (`access_roles ∩ user_roles`), deduplicates by chunk-id, applies a score floor, sorts, and returns the top-k results.
+- Performs dual-scope ANN search (team + global) according to the user token, applies the ACL filter (`access_roles ∩ user_roles`), deduplicates by chunk-id, applies a score floor, sorts, and returns the top-k (default is 3) results.
 
 **MCP Server — Vector Store**
 - Pinecone chosen for cloud-native scalability and simple API integration.
@@ -76,7 +76,7 @@ Streamlit client (login, chat loop, rendering) → FastAPI → Orchestration lay
 
 ## Trade-offs
 
-- **Chunk & Embed** — A section that spans two pages becomes two independent chunks (no overlap), so some context may be lost. The small embedding model is weaker on niche vocabulary; tables and multi-column layouts remain low-quality.
+- **Chunk & Embed** — A section that spans two pages becomes two independent chunks (no cross-page overlap), so some context may be lost. The small embedding model is weaker on niche vocabulary; tables and multi-column layouts remain low-quality.
 - **Chat UI** — No streaming → higher perceived latency on long answers.
 - **Intent Gate** — May fail on domain-specific abbreviations; misclassification can block legitimate queries.
 - **Knowledge Lookup** — Stdio subprocess started per request introduces startup latency.
