@@ -39,7 +39,7 @@ only classify it.
 
 Rules:
 - Rewrite ONLY when the message depends on chat history (pronouns,
-  follow-ups). A message that already stands alone must not be rewritten —
+  follow-ups), or a clear typo. A message that already stands alone must not be rewritten —
   leave rewritten_query empty and it is searched verbatim.
 - "unclear" is ONLY for messages plainly about internal company knowledge
   that are too vague to search. Personal questions, questions about you (the

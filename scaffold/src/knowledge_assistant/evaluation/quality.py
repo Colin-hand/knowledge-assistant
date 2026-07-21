@@ -11,7 +11,7 @@ from knowledge_assistant.log import get_logger
 
 logger = get_logger(__name__)
 
-THRESHOLD = 3.5
+THRESHOLD = 4
 
 
 class QualityScore(BaseModel):
