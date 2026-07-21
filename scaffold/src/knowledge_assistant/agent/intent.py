@@ -21,8 +21,10 @@ class IntentResult(BaseModel):
     )
     rewritten_query: str = Field(
         description=(
-            "For category 'clear' only: the question rewritten fully self-contained, "
-            "pronouns and follow-ups resolved from the chat history. Otherwise empty."
+            "For category 'clear' AND only when the message depends on chat history "
+            "(pronouns, follow-ups): the question rewritten fully self-contained. "
+            "Empty when the message already stands alone (it is used verbatim) or "
+            "the category is not 'clear'."
         )
     )
     reason: str = Field(

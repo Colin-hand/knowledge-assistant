@@ -1,6 +1,9 @@
+import re
+
 from pydantic import BaseModel, Field
 
 from knowledge_assistant import telemetry
+from knowledge_assistant.config import get_settings
 from knowledge_assistant.agent.prompts import (
     DEFAULT_TONE,
     GENERATOR_SYSTEM,
@@ -11,6 +14,9 @@ from knowledge_assistant.log import get_logger
 from knowledge_assistant.models import Chunk, Citation
 
 logger = get_logger(__name__)
+
+# Strip bracketed chunk-id references the model may leak into answer text.
+_INLINE_REF = re.compile(r"\s*\[[^\[\]]*\.pdf:\d+:\d+[^\[\]]*\]")
 
 
 class RawCitation(BaseModel):
@@ -29,8 +35,10 @@ class GeneratorOutput(BaseModel):
     flags: list[str] = Field(
         default_factory=list,
         description=(
-            "'conflict' when chunks disagree on a fact stated in the answer; "
-            "'stale_source' when any cited chunk has status archived."
+            "'conflict' when different documents disagree on a fact stated in the "
+            "answer; 'inconsistent_source' when figures or statements within a "
+            "single document do not reconcile; 'stale_source' when any cited "
+            "chunk has status archived."
         ),
     )
     insufficient_evidence: bool = Field(
@@ -82,7 +90,13 @@ async def generate(
         {"role": "system", "content": GENERATOR_SYSTEM + tone_section(tone)},
         {"role": "user", "content": f"Question: {query}\n\nEvidence chunks:\n\n{evidence}"},
     ]
-    output = await telemetry.chat_parse("generator", messages, GeneratorOutput)
+    output = await telemetry.chat_parse(
+        "generator",
+        messages,
+        GeneratorOutput,
+        reasoning_effort=get_settings().openai_reasoning_effort_generator,
+    )
+    output.answer = _INLINE_REF.sub("", output.answer).strip()
     citations, grounded = validate_citations(output, chunks)
     # Force stale_source whenever an archived chunk is cited.
     if any(c.status == "archived" for c in citations) and "stale_source" not in output.flags:

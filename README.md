@@ -41,7 +41,7 @@ Pipeline: Question Bank from docs → Retrieval Metrics.
 - LLM-generated questions per document (committed pool).
 
 **Retrieval Metrics**
-- Hit-rate@k, MRR, and reversed-relevancy over the question pool.
+- Hit-rate@k, MRR, and an LLM-judged relevancy score (1–5) over the question pool.
 
 ### Online — Query Path
 
@@ -52,7 +52,7 @@ Streamlit client (login, chat loop, rendering) → FastAPI → Orchestration lay
 - Non-domain history is trimmed before the query and history are passed to FastAPI and the orchestrator.
 
 **Intent Gate**
-- Single LLM call that classifies the query as: clear, unclear, greeting, out-of-domain, manipulation, or rewrite.
+- Single LLM call that classifies the query (clear, unclear, greeting, out-of-domain, manipulation) and rewrites when need.
 
 **Knowledge Lookup**
 - One MCP call: `search_knowledge(token, query)`.
@@ -69,7 +69,7 @@ Streamlit client (login, chat loop, rendering) → FastAPI → Orchestration lay
 - Parallel LLM calls, one per retrieved chunk; empty results are dropped.
 
 **Answer Synthesis**
-- Single LLM call that produces a tone-controlled answer, flags conflicts or stale sources, and requires every claim to cite a chunk.
+- Single LLM call that produces a tone-controlled answer, flags conflicts, internally inconsistent figures, or stale sources, and requires every claim to cite a chunk.
 
 **Logging**
 - Structured, per-request logging of every stage.

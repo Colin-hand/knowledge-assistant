@@ -53,6 +53,18 @@ def _md(text: str) -> str:
     return text.replace("$", "\\$")
 
 
+def _meta_caption(meta: dict) -> None:
+    stages = " · ".join(
+        f"{k.removesuffix('_ms')} {v:.0f}ms" for k, v in meta["stage_breakdown"].items()
+    )
+    st.caption(
+        f"\\${meta['cost_usd']:.4f} · {meta['latency_ms']:.0f} ms · "
+        f"{meta['llm_calls']} LLM calls · {meta['prompt_tokens']}+{meta['completion_tokens']} tok"
+        + (f" · {stages}" if stages else "")
+        + f" · trace `{meta.get('trace_id', '-')}` — details on the 🔍 Request Details page"
+    )
+
+
 def _abort_inflight() -> None:
     inflight = st.session_state.pop("inflight", None)
     if inflight:
@@ -83,6 +95,12 @@ QUICK_CASES = [
         "label": "Cash & runway",
         "prompt": "What's our current cash position and runway?",
         "roles": {"exec", "finance"},
+    },
+    {
+        "label": "Sensitive info (M&A cost)",
+        "prompt": "How much are we paying to acquire Meridian Analytics?",
+        "roles": {"exec"},
+        "note": "exec-only: the Atlas memo, plus a confidential paragraph inside the company-wide all-hands",
     },
 ]
 BEHAVIOR_CHECKS = [
@@ -219,30 +237,36 @@ def render_answer(msg: dict) -> None:
     for flag in msg.get("flags", []):
         if flag == "conflict":
             st.warning("Sources disagree on this — both values shown with their dates.")
+        elif flag == "inconsistent_source":
+            st.warning("This source's own figures don't reconcile — discrepancy noted in the answer.")
         elif flag == "stale_source":
             st.warning("Part of this answer cites an archived document; a newer version exists.")
     st.markdown(_md(msg["text"]))
     citations = msg.get("citations", [])
-    if citations:
-        with st.expander(f"📎 {len(citations)} citation(s)"):
-            for c in citations:
-                st.markdown(
-                    f"**{c['title']}** — page {c['page']} · {c['period']} · "
-                    f"{c['source']} · {c['status']}"
-                    + (f" · superseded by `{c['superseded_by']}`" if c.get("superseded_by") else "")
-                )
-                st.markdown(f"> {_md(c['quote'])}")
     meta = msg.get("meta")
-    if meta:
-        stages = " · ".join(
-            f"{k.removesuffix('_ms')} {v:.0f}ms" for k, v in meta["stage_breakdown"].items()
-        )
-        st.caption(
-            f"\\${meta['cost_usd']:.4f} · {meta['latency_ms']:.0f} ms · "
-            f"{meta['llm_calls']} LLM calls · {meta['prompt_tokens']}+{meta['completion_tokens']} tok"
-            + (f" · {stages}" if stages else "")
-            + f" · trace `{meta.get('trace_id', '-')}` — details on the 🔍 Request Details page"
-        )
+    if citations:
+        with st.container(border=True):
+            by_doc: dict[str, list[dict]] = {}
+            for c in citations:
+                by_doc.setdefault(c["doc_id"], []).append(c)
+            links = " · ".join(
+                f"[{doc_id.split('/')[-1]}](https://{cs[0]['source']}.internal/{doc_id})"
+                for doc_id, cs in by_doc.items()
+            )
+            st.markdown(f"**Sources** — {links}")
+            with st.expander("Quotes & request log", expanded=False):
+                multi_doc = len(by_doc) > 1
+                for doc_id, cites in by_doc.items():
+                    stem = doc_id.split("/")[-1].removesuffix(".pdf")
+                    for c in cites:
+                        for line in c["quote"].splitlines():
+                            if line.strip():
+                                where = f"{stem} · p.{c['page']}" if multi_doc else f"p.{c['page']}"
+                                st.caption(f"{where} — “{_md(line.strip())}”")
+                if meta:
+                    _meta_caption(meta)
+    elif meta:
+        _meta_caption(meta)
 
 
 for msg in st.session_state.get("messages", []):

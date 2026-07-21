@@ -4,7 +4,7 @@ import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, BadRequestError
 from pydantic import BaseModel
 
 from knowledge_assistant.config import get_settings
@@ -77,13 +77,33 @@ def _record(component: str, model: str, latency_ms: float, pt: int, ct: int, cos
     )
 
 
-async def chat_parse[T: BaseModel](component: str, messages: list[dict], schema: type[T]) -> T:
+_reasoning_param_ok = True
+
+
+async def chat_parse[T: BaseModel](
+    component: str,
+    messages: list[dict],
+    schema: type[T],
+    reasoning_effort: str | None = None,
+) -> T:
     """Structured-output chat call; returns a validated instance of `schema`."""
+    global _reasoning_param_ok
     s = get_settings()
+    kwargs: dict = {"model": s.openai_model, "messages": messages, "response_format": schema}
+    effort = reasoning_effort if reasoning_effort is not None else s.openai_reasoning_effort
+    if effort and _reasoning_param_ok:
+        kwargs["reasoning_effort"] = effort
     t0 = time.perf_counter()
-    completion = await client().beta.chat.completions.parse(
-        model=s.openai_model, messages=messages, response_format=schema
-    )
+    try:
+        completion = await client().beta.chat.completions.parse(**kwargs)
+    except (TypeError, BadRequestError) as exc:
+        # Model/SDK rejects the param — drop it for the rest of the process.
+        if "reasoning_effort" not in kwargs or "reasoning" not in str(exc):
+            raise
+        logger.warning("reasoning_effort_unsupported", extra={"error": str(exc)})
+        _reasoning_param_ok = False
+        kwargs.pop("reasoning_effort")
+        completion = await client().beta.chat.completions.parse(**kwargs)
     latency = (time.perf_counter() - t0) * 1000
     usage = completion.usage
     pt = usage.prompt_tokens if usage else 0

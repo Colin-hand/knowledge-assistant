@@ -10,3 +10,4 @@ scaffold/.ingest_state.json
 scaffold/eval/runs/
 .DS_Store
 .README.md
+.vscode

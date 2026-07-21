@@ -127,7 +127,7 @@ Token counts come from the API response `usage`; cost is computed from env-confi
 
 - **Login-lite:** sidebar select box of the 4 users from `users.json` (labeled by `name`), which sets the **token** sent as `Authorization: Bearer <token>` on every request. The UI stores only the token; roles never exist client-side.
 - **Chat pane:** `st.chat_message` history per session; user question in, assistant answer out.
-- **Citations:** rendered under each answer as expandable items — doc title, `period`, `source`, page/chunk reference, supporting snippet. `conflict` / `stale_source` flags render as a warning banner above the answer.
+- **Citations:** rendered under each answer as expandable items — doc title, `period`, `source`, page/chunk reference, supporting snippet. `conflict` / `inconsistent_source` / `stale_source` flags render as a warning banner above the answer.
 - **Request meta:** the `meta` block (cost, latency, token counts) from the API rendered in a small caption under each answer — makes the telemetry visible in demos.
 - **Status surface:** distinct visual treatment for no-result / refusal / clarification-request / error so demo scenarios are legible.
 - **Session state:** `st.session_state` for history + selected token. Switching user clears history (prevents cross-role context bleed), with a **visible notice** (toast + banner) whenever history is cleared.

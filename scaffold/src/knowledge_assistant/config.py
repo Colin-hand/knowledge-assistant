@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-5.6-luna"
     openai_embed_model: str = "text-embedding-3-small"
+    openai_reasoning_effort: str = "none"  # applied to every chat call; "" disables the param
+    openai_reasoning_effort_generator: str = "medium"  # generator override: it does the checking
     openai_model_input_price_per_1m: float = 0.0
     openai_model_output_price_per_1m: float = 0.0
     openai_embed_price_per_1m: float = 0.0
