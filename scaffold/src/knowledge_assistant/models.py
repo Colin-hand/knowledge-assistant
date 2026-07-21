@@ -64,7 +64,13 @@ class Citation(BaseModel):
 
 
 AnswerKind = Literal[
-    "answered", "clarify", "no_result", "refused", "greeting", "out_of_domain", "error"
+    "answered",
+    "no_result",
+    "insufficient_evidence",
+    "refused",
+    "greeting",
+    "out_of_domain",
+    "error",
 ]
 
 

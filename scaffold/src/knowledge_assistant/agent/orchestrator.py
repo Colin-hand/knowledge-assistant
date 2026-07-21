@@ -24,13 +24,6 @@ def _server_params() -> StdioServerParameters:
     )
 
 
-def _last_assistant_kind(history: list[dict] | None) -> str | None:
-    for turn in reversed(history or []):
-        if turn.get("role") == "assistant":
-            return turn.get("kind")
-    return None
-
-
 async def _call_search(token: str, query: str) -> SearchResponse:
     async with stdio_client(_server_params()) as (read, write):
         async with ClientSession(read, write) as session:
@@ -75,6 +68,10 @@ async def answer(
         t0 = time.perf_counter()
         gate = await intent.gate(query, history)
         telemetry.record_stage("intent_ms", (time.perf_counter() - t0) * 1000)
+        logger.info(
+            "intent_result",
+            extra={"category": gate.category, "rewritten_query": gate.rewritten_query},
+        )
         match gate.category:
             case "greeting":
                 try:
@@ -90,11 +87,6 @@ async def answer(
             case "manipulation":
                 logger.warning("manipulation_blocked", extra={"reason": gate.reason})
                 return _finish(reply_logic.refused())
-            case "unclear":
-                # One clarification round max.
-                if _last_assistant_kind(history) == "clarify":
-                    return _finish(reply_logic.clarify_exhausted())
-                return _finish(reply_logic.clarify_request(gate.reason))
         rewritten = gate.rewritten_query or query
 
         # 2. Permission-scoped retrieval via MCP
@@ -121,6 +113,15 @@ async def answer(
         t0 = time.perf_counter()
         output, citations, grounded = await generator.generate(rewritten, compressed, tone)
         telemetry.record_stage("generate_ms", (time.perf_counter() - t0) * 1000)
+        logger.info(
+            "generator_result",
+            extra={
+                "insufficient_evidence": output.insufficient_evidence,
+                "n_raw_citations": len(output.citations),
+                "n_valid_citations": len(citations),
+                "answer_len": len(output.answer),
+            },
+        )
         if not grounded:
             return _finish(reply_logic.insufficient_evidence())
         return _finish(

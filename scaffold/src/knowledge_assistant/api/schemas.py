@@ -11,7 +11,7 @@ Tone = Literal["professional", "friendly", "concise"]
 class ChatTurn(BaseModel):
     role: str
     content: str
-    kind: str | None = None  # assistant turns: the AgentAnswer kind (e.g. "clarify")
+    kind: str | None = None  # assistant turns: the AgentAnswer kind (e.g. "out_of_domain")
 
 
 class ChatRequest(BaseModel):

@@ -152,8 +152,8 @@ def build_history(messages: list[dict]) -> list[dict]:
 
 KIND_BADGE = {
     "no_result": ("ℹ️", "No accessible information"),
+    "insufficient_evidence": ("🔍", "Insufficient evidence"),
     "refused": ("🚫", "Refused"),
-    "clarify": ("❓", "Needs clarification"),
     "error": ("⚠️", "Error"),
     "out_of_domain": ("🧭", "Out of scope"),
 }
