@@ -15,8 +15,17 @@ from knowledge_assistant.models import Chunk, Citation
 
 logger = get_logger(__name__)
 
-# Strip bracketed chunk-id references the model may leak into answer text.
-_INLINE_REF = re.compile(r"\s*\[[^\[\]]*\.pdf:\d+:\d+[^\[\]]*\]")
+# Strip citation markers the model may leak into answer text.
+_INLINE_REF = re.compile(r"\s*\[[^\[\]]*\.pdf:\d+:\d+[^\[\]]*\]")  # [doc:page:seq] lists
+_PUA = re.compile(r"[-]")  # private-use citation delimiters
+_BARE_REF = re.compile(r"\s*\S*\.pdf:\d+:\d+\S*")  # bare chunk-id tokens
+
+
+def _clean_answer(text: str) -> str:
+    text = _INLINE_REF.sub("", text)
+    text = _PUA.sub("", text)
+    text = _BARE_REF.sub("", text)
+    return re.sub(r" {2,}", " ", text).strip()
 
 
 class RawCitation(BaseModel):
@@ -96,7 +105,7 @@ async def generate(
         GeneratorOutput,
         reasoning_effort=get_settings().openai_reasoning_effort_generator,
     )
-    output.answer = _INLINE_REF.sub("", output.answer).strip()
+    output.answer = _clean_answer(output.answer)
     citations, grounded = validate_citations(output, chunks)
     # Force stale_source whenever an archived chunk is cited.
     if any(c.status == "archived" for c in citations) and "stale_source" not in output.flags:

@@ -8,10 +8,6 @@ NO_INFO = (
     "Feel free to rephrase, or ask me about something else — happy to keep looking!"
 )
 
-_GREETING = (
-    "Hi there! 👋 I'm your internal knowledge assistant. Ask me anything about our "
-    "company documents — pricing, brand guidelines, policies, and more."
-)
 _OUT_OF_DOMAIN = (
     "That one's a bit outside my wheelhouse — I can only help with our internal "
     "company knowledge. Happy to help with things like pricing, brand guidelines, "
@@ -25,10 +21,6 @@ _CLARIFY_EXHAUSTED = (
 _REFUSED = "Sorry, that's not something I can help with — but I'm glad to answer questions about our internal documents."
 _ERROR = "Sorry — something went wrong on my side. Please try again in a moment."
 _INVALID_TOKEN = "It looks like your session is no longer valid. Please sign in again and I'll be right here."
-
-
-def greeting() -> AgentAnswer:
-    return AgentAnswer(kind="greeting", text=_GREETING)
 
 
 def out_of_domain() -> AgentAnswer:

@@ -7,9 +7,10 @@ import time
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import get_default_environment, stdio_client
 
-from knowledge_assistant import telemetry
-from knowledge_assistant.agent import compressor, generator, intent, reply_logic
+from knowledge_assistant import progress, telemetry
+from knowledge_assistant.agent import compressor, generator, greeter, intent, reply_logic
 from knowledge_assistant.agent.prompts import DEFAULT_TONE
+from knowledge_assistant.iam.service import AuthenticationError, resolve_token
 from knowledge_assistant.log import current_trace_id, get_logger
 from knowledge_assistant.models import AgentAnswer, SearchResponse
 
@@ -50,12 +51,17 @@ async def _call_search(token: str, query: str) -> SearchResponse:
 
 
 async def answer(
-    token: str, query: str, history: list[dict] | None = None, tone: str = DEFAULT_TONE
+    token: str,
+    query: str,
+    history: list[dict] | None = None,
+    tone: str = DEFAULT_TONE,
+    progress_id: str | None = None,
 ) -> AgentAnswer:
     telemetry.start_request()
     t_start = time.perf_counter()
 
     def _finish(ans: AgentAnswer) -> AgentAnswer:
+        progress.set_stage(progress_id, "done")
         ans.meta = telemetry.summary((time.perf_counter() - t_start) * 1000)
         logger.info(
             "request_summary",
@@ -65,12 +71,20 @@ async def answer(
 
     try:
         # 1. Intent gate
+        progress.set_stage(progress_id, "intent")
         t0 = time.perf_counter()
         gate = await intent.gate(query, history)
         telemetry.record_stage("intent_ms", (time.perf_counter() - t0) * 1000)
         match gate.category:
             case "greeting":
-                return _finish(reply_logic.greeting())
+                try:
+                    user = resolve_token(token)
+                except AuthenticationError:
+                    return _finish(reply_logic.invalid_token())
+                t0 = time.perf_counter()
+                ans = await greeter.greeting(user.name.split(" ")[0], tone)
+                telemetry.record_stage("greeting_ms", (time.perf_counter() - t0) * 1000)
+                return _finish(ans)
             case "out_of_domain":
                 return _finish(reply_logic.out_of_domain())
             case "manipulation":
@@ -84,6 +98,7 @@ async def answer(
         rewritten = gate.rewritten_query or query
 
         # 2. Permission-scoped retrieval via MCP
+        progress.set_stage(progress_id, "retrieval")
         t0 = time.perf_counter()
         try:
             search = await _call_search(token, rewritten)
@@ -94,6 +109,7 @@ async def answer(
             return _finish(reply_logic.no_result())
 
         # 3. Per-chunk relevance compression
+        progress.set_stage(progress_id, "compress")
         t0 = time.perf_counter()
         compressed = await compressor.compress(rewritten, search.chunks)
         telemetry.record_stage("compress_ms", (time.perf_counter() - t0) * 1000)
@@ -101,6 +117,7 @@ async def answer(
             return _finish(reply_logic.insufficient_evidence())
 
         # 4. Grounded, cited generation
+        progress.set_stage(progress_id, "generate")
         t0 = time.perf_counter()
         output, citations, grounded = await generator.generate(rewritten, compressed, tone)
         telemetry.record_stage("generate_ms", (time.perf_counter() - t0) * 1000)

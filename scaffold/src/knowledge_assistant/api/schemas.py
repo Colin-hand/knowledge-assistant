@@ -17,6 +17,7 @@ class ChatTurn(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     tone: Tone = "professional"
+    progress_id: str | None = None  # client-chosen id to poll GET /progress/{id}
     history: list[ChatTurn] = Field(default_factory=list)
 
 

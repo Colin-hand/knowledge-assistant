@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from knowledge_assistant import progress
 from knowledge_assistant.agent import orchestrator
 from knowledge_assistant.api.deps import get_token
 from knowledge_assistant.api.schemas import ChatRequest, ChatResponse
@@ -15,7 +16,13 @@ async def chat(req: ChatRequest, token: str = Depends(get_token)) -> ChatRespons
         query=req.query,
         history=[t.model_dump() for t in req.history],
         tone=req.tone,
+        progress_id=req.progress_id,
     )
+
+
+@router.get("/progress/{progress_id}")
+async def get_progress(progress_id: str, token: str = Depends(get_token)) -> dict:
+    return {"stage": progress.get_stage(progress_id)}
 
 
 @router.get("/healthz")
